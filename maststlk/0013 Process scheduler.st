@@ -1,0 +1,304 @@
+Object subclass: #Link
+	instanceVariableNames: 'nextLink'
+	classVariableNames: ''
+	category: 'Process scheduler'!
+!Link methodsFor: 'Successor Access' stamp: ''!
+nextLink: aLink | | nextLink ← aLink
+! !
+!Link methodsFor: 'Successor Access' stamp: ''!
+nextLink | | ^nextLink
+! !
+Object subclass: #LinkedList
+	instanceVariableNames: 'firstLink lastLink'
+	classVariableNames: ''
+	category: 'Process scheduler'!
+!LinkedList methodsFor: 'Instance Life Cycle' stamp: ''!
+init | |
+	 firstLink ← nil.
+	 lastLink ← nil
+! !
+!LinkedList methodsFor: 'Link Deletion' stamp: ''!
+removeLink: oldLink | aLink |
+	 oldLink==firstLink
+		ifTrue:
+			[firstLink ← oldLink nextLink.
+			oldLink==lastLink ifTrue: [lastLink ← nil]]
+		ifFalse:
+			[aLink ← firstLink.
+			[aLink nextLink==oldLink] whileFalse: [aLink ← aLink nextLink].
+			aLink nextLink: oldLink nextlink.
+			oldLink==lastLink ifTrue: [lastLink ← aLink]].
+	 oldLink nextLink: nil
+! !
+!LinkedList methodsFor: 'Link Deletion' stamp: ''!
+removeFirstLink | oldLink |
+	 self isEmpty ifTrue: [user notify: 'LinkedList is empty'].
+	 oldLink ← firstLink.
+	 firstLink==lastLink
+		ifTrue: [firstLink ← nil.  lastLink ← nil]
+		ifFalse: [firstLink ← oldLink nextLink].
+	 oldLink nextLink: nil.
+	 ^oldLink
+! !
+!LinkedList methodsFor: 'Link Deletion' stamp: ''!
+removeLastLink | oldLink aLink |
+	 self isEmpty ifTrue: [user notify: 'LinkedList is empty'].
+	 oldLink ← lastLink.
+	 firstLink==lastLink
+		ifTrue: [firstLink ← nil.  lastLink ← nil]
+		ifFalse:
+			[aLink ← firstLink.
+			[aLink nextLink==oldLink] whileFalse: [aLink ← aLink nextLink].
+			aLink nextLink: nil.
+			lastLink ← aLink].
+	 oldLink nextLink: nil.
+	 ^oldLink
+! !
+!LinkedList methodsFor: 'Link Insertion' stamp: ''!
+addLastLink: aLink | |
+	 self isEmpty
+		ifTrue: [firstLink ← aLink]
+		ifFalse: [lastLink nextLink: aLink].
+	 aLink nextLink: nil.
+	 lastLink ← aLink
+! !
+!LinkedList methodsFor: 'Link Insertion' stamp: ''!
+addFirstLink: aLink | |
+	 self isEmpty ifTrue: [lastLink ← aLink].
+	 aLink nextLink: firstLink.
+	 firstLink ← aLink
+! !
+!LinkedList methodsFor: 'Testing' stamp: ''!
+isEmpty | | ^firstLink==nil
+! !
+Class subclass: #MetaCollection
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Process scheduler'!
+Class subclass: #MetaLink
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Process scheduler'!
+MetaCollection subclass: #MetaLinkedList
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Process scheduler'!
+Link subclass: #Process
+	instanceVariableNames: 'suspendedContext priority myList'
+	classVariableNames: ''
+	category: 'Process scheduler'!
+!Process methodsFor: 'Access to Parts' stamp: ''!
+onList: aLinkedList | | myList ← aLinkedList
+! !
+!Process methodsFor: 'Access to Parts' stamp: ''!
+suspendedContext: aContext | | suspendedContext ← aContext
+! !
+!Process methodsFor: 'Access to Parts' stamp: ''!
+offList | | myList ← nil
+! !
+!Process methodsFor: 'Access to Parts' stamp: ''!
+suspendedContext | | ^suspendedContext
+! !
+!Process methodsFor: 'Access to Parts' stamp: ''!
+priority | | ^priority
+! !
+!Process methodsFor: 'Access to Parts' stamp: ''!
+priority: anInteger | | priority ← anInteger
+! !
+!Process methodsFor: 'Access to Parts' stamp: ''!
+printOn: strm | |
+	self printGenericOn: strm.
+	strm append: ' in '.
+	suspendedContext printOn: strm
+! !
+!Process methodsFor: 'Initialization' stamp: ''!
+forContext: aContext priority: anInteger | |
+	 self suspendedContext: aContext.
+	 self priority: anInteger
+! !
+!Process methodsFor: 'Termination' stamp: ''!
+terminate | |
+	 Processor activeProcess==self
+		ifTrue:
+			[thisContext sender==nil
+				ifFalse: [thisContext sender release].
+			Processor suspend]
+		ifFalse:
+			[self suspendedContext sender==nil
+				ifFalse: [self suspendedContext sender release].
+			myList removeLink: self]
+! !
+Object subclass: #ProcessorScheduler
+	instanceVariableNames: 'quiescentProcessLists activeProcess'
+	classVariableNames: ''
+	category: 'Process scheduler'!
+!ProcessorScheduler methodsFor: 'Access to Parts' stamp: ''!
+activeProcess: aProcess | | ^activeProcess← aProcess
+! !
+!ProcessorScheduler methodsFor: 'Access to Parts' stamp: ''!
+activePriority | | ^activeProcess priority
+! !
+!ProcessorScheduler methodsFor: 'Access to Parts' stamp: ''!
+activeProcess | | ^activeProcess
+! !
+!ProcessorScheduler methodsFor: 'Critical sections' stamp: ''!
+critical⦂ aBlock | savedPriority value |
+	savedPriority ← activeProcess priority.
+	activeProcess priority: highestPriority + 1.  "Can't be pre-empted"
+	value ← aBlock value.
+	activeProcess priority: savedPriority.
+	^value
+! !
+!ProcessorScheduler methodsFor: 'Initialization' stamp: ''!
+systemInit |
+ |
+	"Really create and install the scheduler, and snapshot the result."
+	self init.
+	activeProcess suspendedContext: thisContext.
+	Processor ← self.
+	"Do a user snapshot without setting InitialContext, which no longer exists."
+	user releaseExternalViews.
+	user snapshotPrimitive.
+	"Control returns here in the new system with everything as it should be."
+	user currentDisplay: CurrentDisplay.
+	user restore
+! !
+!ProcessorScheduler methodsFor: 'Initialization' stamp: ''!
+init | |
+	 quiescentProcessLists ← Vector new: highestPriority.
+	 (1 to: highestPriority)
+		do: [:priority |
+			quiescentProcessLists◦priority ← LinkedList init].
+	 activeProcess ← Process new priority: 2
+! !
+!ProcessorScheduler methodsFor: 'Initialization' stamp: ''!
+classInit | | highestPriority ← 4
+! !
+!ProcessorScheduler methodsFor: 'List Maintainance' stamp: ''!
+sleep: aProcess | processList | 
+	 processList ← quiescentProcessLists at: aProcess priority.
+	 processList addLastLink: aProcess.
+	 aProcess onList: processList
+! !
+!ProcessorScheduler methodsFor: 'List Maintainance' stamp: ''!
+wakeHighestPriority | priority processList process | 
+	 priority ← highestPriority.
+	 [(quiescentProcessLists at: priority) isEmpty]
+				whileTrue: [priority ← priority-1].
+	 processList ← quiescentProcessLists at: priority.
+	 process ← processList removeFirstLink.
+	 process offList.
+	 ^process
+! !
+!ProcessorScheduler methodsFor: 'Primitive Control Transfer' stamp: ''!
+transferTo: newProcess | |
+	 activeProcess suspendedContext: thisContext sender.
+	 activeProcess ← newProcess.
+	 thisContext sender← newProcess suspendedContext
+! !
+!ProcessorScheduler methodsFor: 'Process Resumption and Suspension' stamp: ''!
+suspend | | <primitive: 71>
+	user croak
+! !
+!ProcessorScheduler methodsFor: 'Process Resumption and Suspension' stamp: ''!
+resume: newProcess | | <primitive: 70>
+	user croak
+! !
+!ProcessorScheduler methodsFor: 'Process Resumption and Suspension' stamp: ''!
+simulateSuspend | oldProcess | 
+	 oldProcess ← activeProcess.
+	 self transferTo: (self wakeHighestPriority).
+	 ^oldProcess
+! !
+!ProcessorScheduler methodsFor: 'Process Resumption and Suspension' stamp: ''!
+simulateResume: newProcess | | 
+	 (newProcess priority) > (activeProcess priority)
+		ifTrue: [self sleep: activeProcess.
+			self transferTo: newProcess]
+		ifFalse: [self sleep: newProcess]
+! !
+!ProcessorScheduler methodsFor: 'Timing' stamp: ''!
+signal: aSemaphore atTime: aTime | | <primitive: 93>
+	"Signal the semaphore when the interval timer reaches this value (a doubleword)"
+	user croak
+! !
+!ProcessorScheduler methodsFor: 'Timing' stamp: ''!
+dally: t | s |
+	"Do nothing for t ticks of the high-resolution timer"
+	s ← Semaphore init.
+	self signal: s atTick: (user ticks + t) asDoubleWord.
+	s wait
+! !
+!ProcessorScheduler methodsFor: 'Timing' stamp: ''!
+signal: aSemaphore atTick: aTick | | <primitive: 93>
+	"Signal the semaphore when the interval timer reaches this value (a doubleword)"
+	user croak
+! !
+LinkedList subclass: #Semaphore
+	instanceVariableNames: 'excessSignals'
+	classVariableNames: ''
+	category: 'Process scheduler'!
+!Semaphore methodsFor: 'Communication' stamp: ''!
+wait | | <primitive: 69>
+	user croak
+! !
+!Semaphore methodsFor: 'Communication' stamp: ''!
+signal | | <primitive: 68>
+	user croak
+! !
+!Semaphore methodsFor: 'Communication' stamp: ''!
+simulateWait | |
+	 excessSignals>0
+			ifTrue: [excessSignals ← excessSignals-1]
+			ifFalse: [self addLastLink: Processor suspend]
+! !
+!Semaphore methodsFor: 'Communication' stamp: ''!
+simulateSignal | |
+	 self isEmpty
+			ifTrue: [excessSignals ← excessSignals+1]
+			ifFalse: [Processor resume: self removeFirstLink]
+! !
+!Semaphore methodsFor: 'Initialization' stamp: ''!
+init | |
+	 super init.
+	 excessSignals ← 0
+! !
+Queue subclass: #SharedQueue
+	instanceVariableNames: 'accessProtect readSynch'
+	classVariableNames: ''
+	category: 'Process scheduler'!
+!SharedQueue methodsFor: 'Initialization Protocol' stamp: ''!
+init | |
+	super of: (Vector new: 10).
+	accessProtect ← Semaphore init.
+	accessProtect signal.
+	readSynch ← Semaphore init
+! !
+!SharedQueue methodsFor: 'Stream Protocol' stamp: ''!
+next ← value | |
+	accessProtect wait.
+	super next ← value.
+	accessProtect signal.
+	readSynch signal.
+	^value
+! !
+!SharedQueue methodsFor: 'Stream Protocol' stamp: ''!
+pastend← value | newPosition | "Copy of Stream method to prevent deadlock"
+	readposition = 0 ifTrue:
+		[array ← array grow.
+	 	 limit ← array length.
+	 	 ^super next← value].
+	newPosition ← position - readposition.
+	array ◦ (1 to: newPosition) ← array ◦ (readposition + 1 to: position).
+	readposition ← 0.
+	position ← newPosition.
+	^super next← value
+! !
+!SharedQueue methodsFor: 'Stream Protocol' stamp: ''!
+next | value |
+	readSynch wait.
+	accessProtect wait.
+	value ← super next.
+	accessProtect signal.
+	^value
+! !
