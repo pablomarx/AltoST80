@@ -1,6 +1,6 @@
 PanedWindow subclass: #BrowseWindow
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'stdTemplates'
 	category: 'Windows'!
 !BrowseWindow methodsFor: 'Initialization' stamp: ''!
 classInit | |
@@ -26,7 +26,7 @@ default | systemPane classPane orgPane selectorPane codePane |
 ! !
 PanedWindow subclass: #CodeWindow
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'stdTemplates'
 	category: 'Windows'!
 !CodeWindow methodsFor: 'Initialization' stamp: ''!
 classInit | |
@@ -61,7 +61,7 @@ class: class selector: selector para: para formerly: oldpara | codePane |
 ! !
 PanedWindow subclass: #InspectWindow
 	instanceVariableNames: 'variables'
-	classVariableNames: ''
+	classVariableNames: 'stdTemplates'
 	category: 'Windows'!
 !InspectWindow methodsFor: 'Initialization' stamp: ''!
 of: object | instanceVarPane instanceValuePane safeVec n |
@@ -103,7 +103,7 @@ trailer: s | |
 ! !
 PanedWindow subclass: #NotifyWindow
 	instanceVariableNames: 'enoughpanes'
-	classVariableNames: ''
+	classVariableNames: 'bigTemplates'
 	category: 'Windows'!
 !NotifyWindow methodsFor: 'As yet unclassified' stamp: ''!
 of: t1 stackPane: stackPane codePane: codePane | contextVarPane contextValuePane instanceVarPane instanceValuePane |
@@ -379,7 +379,7 @@ close | |
 ! !
 PanedWindow subclass: #SyntaxWindow
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'stdTemplates'
 	category: 'Windows'!
 !SyntaxWindow methodsFor: 'As yet unclassified' stamp: ''!
 aboutToFrame | nw t s c |
@@ -412,7 +412,7 @@ of: errorString at: position in: stream for: class from: context | stackPane cod
 ! !
 Object subclass: #Window
 	instanceVariableNames: 'frame collapsed titlepara growing exitflag '
-	classVariableNames: ''
+	classVariableNames: 'titleframe windowmenu titlerun'
 	category: 'Windows'!
 !Window methodsFor: 'Default Event responses' stamp: ''!
 yellowbug | |

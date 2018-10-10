@@ -889,7 +889,7 @@ fontset: t1 | |
 ! !
 Object subclass: #Textframe
 	instanceVariableNames: 'frame window para style lines lastline'
-	classVariableNames: ''
+	classVariableNames: 'tab'
 	category: 'Text Objects'!
 !Textframe methodsFor: 'Access to Parts' stamp: ''!
 frame← t1 | |
@@ -1379,7 +1379,7 @@ spy every: 10; on⦂ [TD select: user waitbug]; report: 'select.spy'; close.
 ! !
 Textframe subclass: #TextImage
 	instanceVariableNames: 'c1 c2 begintypein superimage oldEntity sel'
-	classVariableNames: ''
+	classVariableNames: 'scrap paragraphmenu cut ctlw Deletion on bs paste'
 	category: 'Text Objects'!
 !TextImage methodsFor: 'ACCESS TO PARTS' stamp: ''!
 Deletion← s | |
@@ -1952,7 +1952,7 @@ presson: press in: r | |
 ! !
 BitBlt subclass: #TextScanner
 	instanceVariableNames: 'printing chari stopx xtable exceptions spacecount spacei spacex charpad text spacesize style para font fontno minascii maxascii glyphs frame looktype'
-	classVariableNames: ''
+	classVariableNames: 'tab bs defaultExceptions '
 	category: 'Text Objects'!
 !TextScanner methodsFor: 'Access to parts' stamp: ''!
 spacex | |

@@ -1,6 +1,6 @@
 Number subclass: #Float
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'radiansPerDegree ln2 halfpi sqrt2 twopi'
 	category: 'Numbers'!
 !Float methodsFor: 'Arithmetic' stamp: ''!
 ≠ aNumber | |<primitive: 56>
@@ -634,7 +634,7 @@ subscripts: a | |
 ! !
 String subclass: #Natural
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'Naturalzero'
 	category: 'Numbers'!
 !Natural methodsFor: 'Arithmetic' stamp: ''!
 natdiv: arg | quo rem ql d div dh dnh z z2 dl q i j k l carry digit flag |

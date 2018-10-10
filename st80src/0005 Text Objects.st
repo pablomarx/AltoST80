@@ -893,7 +893,7 @@ fontset: t1 lineheight: t2 linelead: t3 baseline: t4 tabsize: t5 spacesize: t6 e
 ! !
 Object subclass: #Textframe
 	instanceVariableNames: 'frame window para style lines lastline'
-	classVariableNames: ''
+	classVariableNames: 'cr'
 	category: 'Text Objects'!
 !Textframe methodsFor: 'Access to Parts' stamp: ''!
 lineheight | |
@@ -1384,7 +1384,7 @@ spy every: 10; on⦂ [TD select: user waitbug]; report: 'select.spy'; close.
 ! !
 Textframe subclass: #TextImage
 	instanceVariableNames: 'c1 c2 begintypein superimage oldEntity sel'
-	classVariableNames: ''
+	classVariableNames: 'Deletion on esc off Scrap scrap cut paste bs'
 	category: 'Text Objects'!
 !TextImage methodsFor: 'ACCESS TO PARTS' stamp: ''!
 Scrap← s | |

@@ -572,7 +572,7 @@ yellowbug | t1 |
 ! !
 Object subclass: #ScrollBar
 	instanceVariableNames: 'rect bitstr owner position'
-	classVariableNames: ''
+	classVariableNames: 'JumpCursor'
 	category: 'Panes and Menus'!
 !ScrollBar methodsFor: 'Image' stamp: ''!
 boxPosition← f | |

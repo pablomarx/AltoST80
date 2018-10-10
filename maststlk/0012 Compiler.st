@@ -382,7 +382,7 @@ evaluate: stream in: ctxt to: receiver notifying: t4 | methodNode method cls |
 ! !
 LADParseNode subclass: #LADDecompiler
 	instanceVariableNames: 'postfixStream prefixStream here hereType ahead aheadType literals instVars tempVars symbolTables nArgs nLits beginStream nextBegin'
-	classVariableNames: ''
+	classVariableNames: 'typeTable baseTable specialTable constantTable ST8'
 	category: 'Compiler'!
 !LADDecompiler methodsFor: 'Decoding' stamp: ''!
 decodeConstant: lowbits | |
@@ -1183,7 +1183,7 @@ printon: strm indent: level | |
 ! !
 LADParseNode subclass: #LADMessageNode
 	instanceVariableNames: 'receiver selector precedence special arguments sizes'
-	classVariableNames: ''
+	classVariableNames: 'macroTransformers ThenFlag macroEmitters'
 	category: 'Compiler'!
 !LADMessageNode methodsFor: 'Code Generation' stamp: ''!
 emitForEffect: stack on: strm | |
@@ -1608,7 +1608,7 @@ Object subclass: #LADObject
 	category: 'Compiler'!
 Object subclass: #LADParseNode
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'JmpLong NodeNil Send LdMinus1 StorePop SendLong SendPlus JmpLimit NodeTrue SendType NodeSelf Pop Jmp Bfp Dup stdSelectors LdSelf LdTrue LdNil Store NodeThisContext CodeLimits CodeBases stdLiterals stdVariables ShortStoP SendLimit NodeFalse NodeSuper LdLitType LdTempType LdLitIndType LdInstType NodeNullBlock EndMethod EndRemote LdThisContext LdInstLong LdFalse LdSuper'
 	category: 'Compiler'!
 !LADParseNode methodsFor: 'Code Generation' stamp: ''!
 sizeJump: dist | |
@@ -2128,7 +2128,7 @@ test: class | s |
 ! !
 Object subclass: #LADScanner
 	instanceVariableNames: 'source mark hereChar aheadChar token tokenType'
-	classVariableNames: ''
+	classVariableNames: 'typeTable'
 	category: 'Compiler'!
 !LADScanner methodsFor: 'As yet unclassified' stamp: ''!
 xLetter | type s |  "form a word or keyword"

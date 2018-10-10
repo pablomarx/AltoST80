@@ -115,7 +115,7 @@ fork | |
 ! !
 String subclass: #CompiledMethod
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'largeFrame smallFrame primReturnField primReturnSelf '
 	category: 'Interpreter'!
 !CompiledMethod methodsFor: 'As yet unclassified' stamp: ''!
 moveSourceTo: newFile  | len fileNo pos t5 t6 t7 |

@@ -749,7 +749,7 @@ Object subclass: #Magnitude
 	category: 'Numbers-classes'!
 Magnitude subclass: #Number
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'pi radiansPerDegree ln2 fourthpi halfpi'
 	category: 'Numbers-classes'!
 !Number methodsFor: 'Arithmetic' stamp: ''!
 squared | |
@@ -1241,7 +1241,7 @@ cansubscript: a | |
 ! !
 Integer subclass: #SmallInteger
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'digitbuffer'
 	category: 'Numbers-classes'!
 !SmallInteger methodsFor: 'Arithmetic' stamp: ''!
 compare: arg | |

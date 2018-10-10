@@ -3,7 +3,7 @@ Object subclass: #BitBlt
 				width height source sourceRaster sourceX sourceY
 				clipX clipY clipWidth clipHeight
 				sourceForm destForm screenForm'
-	classVariableNames: ''
+	classVariableNames: 'pageOneCursor'
 	category: 'Graphics'!
 !BitBlt methodsFor: 'Access to Parts' stamp: ''!
 sourceRaster: t1 | |
@@ -298,7 +298,7 @@ beDisplay || <primitive: 97>
 ! !
 Object subclass: #Form
 	instanceVariableNames: 'extent bits offset figure ground'
-	classVariableNames: ''
+	classVariableNames: 'black brush aurora aurorarunning SPARE white over reverse color formmenu under dotsetter blankcursor '
 	category: 'Graphics'!
 !Form methodsFor: 'As yet unclassified' stamp: ''!
 extent: t1 bits: t2 offset: t3 | |

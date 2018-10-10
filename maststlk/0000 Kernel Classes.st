@@ -7,7 +7,7 @@ Object subclass: #Class
 				superclass "<Class> for execution of inherited behavior"
 				environment "<Vector of SymbolTables> for external refs"
 				fieldtype'
-	classVariableNames: ''
+	classVariableNames: 'lastClass lastInstvarClass lastInstvars lastParagraph lastSelector'
 	category: 'Kernel Classes'!
 !Class methodsFor: 'Access to parts' stamp: ''!
 instvars | |
@@ -1404,7 +1404,7 @@ Object subclass: #UserView
 			projectWindow "my representative in an overview"
 			disp "<dispframe> default message stream"
 			sched "<Vector> Windows in this view"'
-	classVariableNames: ''
+	classVariableNames: 'screenMenu mxoffset myoffset'
 	category: 'Kernel Classes'!
 !UserView methodsFor: 'As yet unclassified' stamp: ''!
 primKbdBlock | |<primitive: 47>

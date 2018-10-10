@@ -123,7 +123,7 @@ forkAt: priority | |
 ! !
 String subclass: #CompiledMethod
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'largeFrame smallFrame '
 	category: 'Interpreter'!
 !CompiledMethod methodsFor: 'As yet unclassified' stamp: ''!
 beReturnField: field | |

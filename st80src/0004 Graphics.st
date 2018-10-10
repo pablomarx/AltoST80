@@ -335,7 +335,7 @@ show | |
 ! !
 Object subclass: #Form
 	instanceVariableNames: 'extent bits offset figure ground'
-	classVariableNames: ''
+	classVariableNames: 'blankcursor brush aurora aurorarunning SPARE over color formmenu under dotsetter black white'
 	category: 'Graphics'!
 !Form methodsFor: 'As yet unclassified' stamp: ''!
 extent: t1 bits: t2 offset: t3 | |
@@ -770,7 +770,7 @@ hideData: complete | s t3 |
 ! !
 Set subclass: #Image
 	instanceVariableNames: ' origin rectangle path form superimage xgrid ygrid figure ground'
-	classVariableNames: ''
+	classVariableNames: 'under screen black white aurora over'
 	category: 'Graphics'!
 !Image methodsFor: 'ACCESS TO PARTS' stamp: ''!
 ground: t1 | |

@@ -7,7 +7,7 @@ Object subclass: #Class
 				superclass "<Class> for execution of inherited behavior"
 				environment "<Vector of SymbolTables> for external refs"
 				fieldtype'
-	classVariableNames: ''
+	classVariableNames: 'lastSelector lastParagraph lastInstvarClass'
 	category: 'Kernel Classes'!
 !Class methodsFor: 'Access to parts' stamp: ''!
 instsize | | "Return the number of user accessable instance fields"

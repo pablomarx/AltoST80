@@ -1003,7 +1003,7 @@ movingsetup | pt bits |
 ! !
 Object subclass: #ScrollBar
 	instanceVariableNames: 'rect bitstr owner position'
-	classVariableNames: ''
+	classVariableNames: 'UpCursor'
 	category: 'Panes and Menus'!
 !ScrollBar methodsFor: 'Image' stamp: ''!
 hidewhile⦂ expr | v |

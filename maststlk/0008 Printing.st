@@ -50,7 +50,7 @@ Object subclass: #ParagraphPrinter
 			style "<TextStyle> for paragraphs"
 			strm "<Stream> for output"
 			'
-	classVariableNames: ''
+	classVariableNames: 'defaultleading'
 	category: 'Printing'!
 !ParagraphPrinter methodsFor: 'Access to state' stamp: ''!
 frame← t1 | |
