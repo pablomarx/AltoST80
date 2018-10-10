@@ -1,6 +1,6 @@
 ListPane subclass: #ClassPane
 	instanceVariableNames: 'systemPane organizationPane'
-	classVariableNames: ''
+	classVariableNames: 'editmenu'
 	category: 'Panes and Menus'!
 !ClassPane methodsFor: 'Browser protocol' stamp: ''!
 noCode | |
@@ -56,7 +56,7 @@ yellowbug | t1 |
 ! !
 Window subclass: #CodePane
 	instanceVariableNames: 'pared class selector selectorPane scrollBar'
-	classVariableNames: ''
+	classVariableNames: 'editmenu'
 	category: 'Panes and Menus'!
 !CodePane methodsFor: 'Browse/Notify protocol' stamp: ''!
 compile: parag in: defaultClass under: category | |
@@ -314,6 +314,402 @@ show | |
 	frame outline.
 	pared show
 ! !
+CodePane subclass: #FilePane
+	instanceVariableNames: 'file'
+	classVariableNames: 'editmenu'
+	category: 'Panes and Menus'!
+!FilePane methodsFor: 'As yet unclassified' stamp: ''!
+file: t1 | |
+	file ← t1
+! !
+!FilePane methodsFor: 'As yet unclassified' stamp: ''!
+yellowbug | t1 |
+	(t1 ← editmenu bug) = 1
+	  ifTrue: [pared again]
+	  ifFalse:
+		[t1 = 2
+		  ifTrue: [pared copyselection]
+		  ifFalse:
+			[t1 = 3
+			  ifTrue: [pared cut]
+			  ifFalse:
+				[t1 = 4
+				  ifTrue: [pared paste]
+				  ifFalse:
+					[t1 = 5
+					  ifTrue: [self doit]
+					  ifFalse:
+						[t1 = 6
+						  ifTrue:
+							[pared formerly
+							  ifTrue: [user displayoffwhile⦂ [
+									(file readwriteshorten.
+									file reset.
+									file append: pared contents.
+									file close.
+									pared formerly: false)]]
+							  ifFalse: [frame flash]]
+						  ifFalse:
+							[t1 = 7
+							  ifTrue: [pared undo]
+							  ifFalse:
+								[t1 = 8
+								  ifTrue: [user displayoffwhile⦂ [(scrollBar hidewhile⦂ [(self showing: file contents asParagraph)])]]
+								  ifFalse:
+									[t1 = 9
+									  ifTrue: [pared realign]]]]]]]]]
+! !
+!FilePane methodsFor: 'As yet unclassified' stamp: ''!
+classInit | |
+	 "FilePane classInit."
+	editmenu ← Menu new string: 'again
+copy
+cut
+paste
+doit
+put
+undo
+get
+align'
+! !
+Textframe subclass: #ListPane
+	instanceVariableNames: 'list firstShown lastShown selection scrollBar'
+	classVariableNames: ''
+	category: 'Panes and Menus'!
+!ListPane methodsFor: 'Initialization' stamp: ''!
+select: lineNum | oldSel |
+	oldSel ← selection "Select my non-dummy displayed entry whose subscript is lineNum; highlight it; if it is different from selection, tell me to select.  If there is no such entry, set selection to 0 and if it wasnt 0 before, tell me to deselect.".
+	((1 max: firstShown - 1) ≤ lineNum and: [lineNum ≤ (list length min: lastShown - 1)])
+	  ifTrue:
+		[selection ← lineNum.
+		self compselection.
+		oldSel ≠ selection
+		  ifTrue: [self selected]]
+	  ifFalse:
+		[selection ← 0.
+		oldSel ≠ selection
+		  ifTrue: [self deselected]]
+! !
+!ListPane methodsFor: 'Initialization' stamp: ''!
+revise: newlist with: sel | changing |
+	 "Acquire newlist. Do not change firstShown. Select sel if in list."
+	(changing ← list ≠ newlist)
+	  ifTrue:
+		[list ← newlist.
+		window clear: white.
+		self makeParagraph.
+		self fill.
+		self displayall]
+	  ifFalse:
+		[selection > 0
+		  ifTrue:
+			[(changing ← list ◦ selection ≠ sel)
+			  ifTrue: [self compselection]]
+		  ifFalse: [changing ← true]].
+	changing
+	  ifTrue:
+		[selection ← ¬1.
+		self select: (list find: sel)]
+! !
+!ListPane methodsFor: 'Initialization' stamp: ''!
+of: t1 | |
+	 "Acquire the specified list and show me scrolled to the top"
+	list ← t1.
+	selection ← 0.
+	self makeParagraph.
+	self frame← window.
+	self outline.
+	self displayall.
+	self deselected
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+outline | |
+	window outline: 1
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+scrollTo: f | place y |
+	^self scrollUp: (f * lastline) asInteger - firstShown + 1 * style lineheight
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+windowleave | |
+	self compselection.
+	self grayselection
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+windowenter | |
+	 "Refresh my image.  Reaffirm selection."
+	self outline.
+	self displayall.
+	self compselection
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+scrollPos | |
+	((firstShown ≡ nil or: [list ≡ nil]) or: [list length = 0])
+	  ifTrue: [^0.0].
+	^(firstShown - 1) asFloat / list length
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+firsttime | |
+	(window has: user mp)
+	  ifTrue: [self enter]
+	  ifFalse: [^false]
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+close | |
+	 "Zero my selection so it wont be grayed when I close.  Break cycles."
+	selection ← 0.
+	scrollBar close
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+outside | |
+	^scrollBar startup
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+enter | |
+	scrollBar show
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+redbug | newSel f |
+	 "Deselect selection and select cursor item, if any"
+	(f ← self locked)
+	  ifFalse:
+		[self compselection.
+		newSel ← ((self lineofy: user mp y) max: 1) - 1.
+		XeqCursor showwhile⦂ [(self select: (newSel = selection
+			  ifTrue: [0]
+			  ifFalse: [newSel]))]].
+	[user redbug and: [(window has: user mp)]] whileTrueDo:
+		[f
+		  ifTrue:
+			[f flash.
+			self compselection.
+			self compselection]]
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+picked | |
+	^window has: user mp
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+leave | |
+	scrollBar hide
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+lasttime | |
+	self leave
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+keyset | c t2 |
+	c ← user currentCursor "As long as any keyset keys are down, react to keys 2 and 8 down by scrolling up or down a line at a time.  If key 4 is down as well, scroll faster.".
+	self scrollControl⦂ [
+		((t2 ← user keyset) = 6
+		  ifTrue: [2]
+		  ifFalse:
+			[t2 = 12
+			  ifTrue: [¬2]
+			  ifFalse:
+				[t2 = 2
+				  ifTrue: [1]
+				  ifFalse:
+					[t2 = 8
+					  ifTrue: [¬1]
+					  ifFalse: [0]]]])].
+	c show
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+hardcopy: pf | t cr first last lasty lineNum parag left right lineheight |
+	window hardcopy: pf thickness: 1.
+	para ≡ nil
+	  ifTrue: [self makeParagraph].
+	parag ← para asParagraph.
+	t ← para asStream.
+	last ← 0.
+	cr ← 13.
+	left ← frame minX.
+	right ← window maxX.
+	lasty ← frame minY.
+	lineheight ← self lineheight.
+	(firstShown to: lastShown) do:
+		[:lineNum | first ← last.
+		((t skipTo: cr) or: [lineNum = lastShown])
+		  ifTrue: [last ← t position]
+		  ifFalse: [user notify: 'not enough lines'].
+		(lineNum = selection and: [selection > 0])
+		  ifTrue: [(self selectionRect "outline selection; complementing doesn't look good" - (0 ⌾ 1) inset: 0 ⌾ 1) hardcopy: pf thickness: 1].
+		(parag copy: first + 1 to: last - 1) presson: pf in: (pf transrect: (left ⌾ lasty rect: right ⌾ (lasty + lineheight + 4))) style: style.
+		lasty ← lasty + lineheight]
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+eachtime | |
+	(window has: user mp)
+	  ifTrue:
+		[user kbck
+		  ifTrue: [^self kbd].
+		user anybug
+		  ifTrue:
+			[user redbug
+			  ifTrue: [^self redbug].
+			user yellowbug
+			  ifTrue: [^self yellowbug].
+			user bluebug
+			  ifTrue: [^false]]
+		  ifFalse:
+			[user anykeys
+			  ifTrue: [^self keyset]]]
+	  ifFalse: [^self outside]
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+kbd | |
+	window flash.
+	user kbd
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+frame← t1 | |
+	 "(Re)initialize my window"
+	window ← t1.
+	(frame ← window inset: 2 ⌾ 0 and: [0 ⌾ 0]) width← 999.
+	self fill.
+	scrollBar ← (scrollBar ≡ nil
+			  ifTrue: [ScrollBar new]
+			  ifFalse: [scrollBar]) on: window from: self
+! !
+!ListPane methodsFor: 'Pane protocol' stamp: ''!
+yellowbug | |
+	window flash
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+makeParagraph | i len s |
+	 "Given firstShown, compute lastShown."
+	firstShown ≡ nil
+	  ifTrue:
+		[firstShown ← 1.
+		selection ← 0].
+	s ← (String new: 200) asStream.
+	s append: self dummy.
+	s cr.
+	list ≡ nil
+	  ifFalse: [(1 to: list length) do:
+			[:i | list ◦ i printOn: s.
+			s cr]].
+	s append: self dummy.
+	s cr.
+	para ← s contents asParagraph.
+	self measureall.
+	lastShown ← self lineofy: window maxY - (style lineheight - 1).
+	frame corner y← (self yofline: lastline) + style lineheight.
+	selection > lastShown
+	  ifTrue: [selection ← 0]
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+lastShown: new | delta deltaPt |
+	delta ← new - lastShown "negative".
+	deltaPt ← 0 ⌾ (0 - delta * style lineheight) "positive".
+	lastShown ← new.
+	firstShown ← firstShown + delta.
+	frame moveby: deltaPt.
+	(Rectangle new origin: window origin extent: window width ⌾ (window height - deltaPt y | style lineheight)) blt: window origin + deltaPt mode: storing.
+	self displaylines: firstShown to: (firstShown - delta - 1 min: lastShown)
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+grayselection | |
+	selection ≠ 0
+	  ifTrue: [self selectionRect color: ltgray mode: oring]
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+firstShown: new | delta deltaPt |
+	delta ← new - firstShown.
+	deltaPt ← 0 ⌾ (0 - delta * style lineheight) "negative".
+	firstShown ← new.
+	lastShown ← lastShown + delta.
+	frame moveby: deltaPt.
+	(window origin - deltaPt rect: window corner) blt: window origin mode: storing.
+	self displaylines: (firstShown max: lastShown - delta + 1) to: lastShown
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+selectionRect | newy |
+	^(Rectangle new "I have a selection.  Return its highlighting rectangle." origin: frame minX ⌾ (newy ← selection * style lineheight + frame minY) corner: frame maxX ⌾ (newy + style lineheight)) intersect: window
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+compselection | |
+	 "If I have a selection, complement its image."
+	selection ≠ 0
+	  ifTrue: [self selectionRect comp]
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+dummy | |
+	^'▱▱▱▱▱▱▱'
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+displayall | |
+	self displaylines: firstShown to: lastShown
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+init | |
+	self para: nil frame: nil
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+fill | |
+	firstShown ≡ nil
+	  ifTrue: [self makeParagraph]
+	  ifFalse: [lastShown ← self lineofy: window maxY - (style lineheight - 1)].
+	(self locked or: [selection > 0])
+	  ifTrue:
+		[selection < firstShown
+		  ifTrue: [frame origin y← window minY - (selection * style lineheight) + style lineheight]
+		  ifFalse:
+			[selection > lastShown
+			  ifTrue: [frame origin y← window minY - (selection * style lineheight + style lineheight) + (window maxY - window minY | style lineheight) min: window minY]]].
+	firstShown ← self lineofy: window minY + (style lineheight - 1).
+	lastShown ← self lineofy: window maxY - (style lineheight - 1)
+! !
+!ListPane methodsFor: 'Private' stamp: ''!
+scrollUp: amount | linetomove |
+	self compselection.
+	amount ← amount | style lineheight.
+	linetomove ← (self lineofy: window minY + amount "abs") max: 1.
+	amount > 0
+	  ifTrue:
+		[lastline = lastShown
+		  ifFalse:
+			[self locked
+			  ifTrue:
+				[selection + 1 = firstShown
+				  ifTrue: [window flash]
+				  ifFalse: [self firstShown: (linetomove min: selection + 1)]]
+			  ifFalse: [self firstShown: (linetomove min: lastline - (window height / style lineheight) + 1)]]]
+	  ifFalse:
+		[firstShown = 1
+		  ifFalse:
+			[self locked
+			  ifTrue:
+				[selection + 1 = lastShown
+				  ifTrue: [window flash]
+				  ifFalse: [self lastShown: (lastShown - (firstShown - linetomove) max: selection + 1)]]
+			  ifFalse:
+				[.
+				self lastShown: (lastShown - (firstShown - linetomove) max: (lastline min: window height / style lineheight))]]].
+	(window origin x ⌾ ((self yofline: lastline) + style lineheight) rect: window corner) clear: white.
+	^self select: selection
+! !
+!ListPane methodsFor: 'Subclass defaults' stamp: ''!
+dirty | |
+	 "My subclasses may want to prohibit a change of selection"
+	^false
+! !
+!ListPane methodsFor: 'Subclass defaults' stamp: ''!
+locked | |
+	 "My subclasses may want to prohibit a change of selection"
+	^selection = 0
+	  ifTrue: [false]
+	  ifFalse: [self dirty]
+! !
+!ListPane methodsFor: 'Subclass defaults' stamp: ''!
+selected | |
+	 "A new selection is highlighted.  I dont care, but my subclasses might"
+! !
+!ListPane methodsFor: 'Subclass defaults' stamp: ''!
+deselected | |
+	 "I just lost my selection.  I dont care, but my subclasses might."
+! !
 Object subclass: #Menu
 	instanceVariableNames: 'str text thisline frame'
 	classVariableNames: ''
@@ -441,7 +837,7 @@ fbug | index |
 ! !
 ListPane subclass: #OrganizationPane
 	instanceVariableNames: 'classPane selectorPane class'
-	classVariableNames: ''
+	classVariableNames: 'editmenu'
 	category: 'Panes and Menus'!
 !OrganizationPane methodsFor: 'As yet unclassified' stamp: ''!
 syntaxChoice | |
@@ -572,7 +968,7 @@ yellowbug | t1 |
 ! !
 Object subclass: #ScrollBar
 	instanceVariableNames: 'rect bitstr owner position'
-	classVariableNames: 'JumpCursor'
+	classVariableNames: 'UpCursor'
 	category: 'Panes and Menus'!
 !ScrollBar methodsFor: 'Image' stamp: ''!
 boxPosition← f | |
@@ -743,7 +1139,7 @@ eachtime | p cx r |
 ! !
 ListPane subclass: #SelectorPane
 	instanceVariableNames: 'organizationPane codePane'
-	classVariableNames: ''
+	classVariableNames: 'editmenu'
 	category: 'Panes and Menus'!
 !SelectorPane methodsFor: 'Browser protocol' stamp: ''!
 dirty | |
@@ -795,6 +1191,235 @@ yellowbug | t1 |
 			  ifFalse:
 				[t1 = 2
 				  ifTrue: [organizationPane forget: list ◦ selection]])]]
+! !
+ListPane subclass: #StackPane
+	instanceVariableNames: 'contextVarPane instanceVarPane codePane variables proceed'
+	classVariableNames: ''
+	category: 'Panes and Menus'!
+!StackPane methodsFor: 'Initialization' stamp: ''!
+context: t1 instance: t2 code: t3 | |
+	contextVarPane ← t1.
+	instanceVarPane ← t2.
+	codePane ← t3.
+	variables ← (Vector new: 16) asStream.
+	proceed ≡ nil
+	  ifTrue: [proceed ← (NoteTaker
+				  ifTrue: [{false , nil , nil}]
+				  ifFalse: [{false , nil , Top currentPriority}])]
+! !
+!StackPane methodsFor: 'Initialization' stamp: ''!
+context: t1 at: level instance: t3 code: t4 | |
+	contextVarPane ← t1.
+	instanceVarPane ← t3.
+	codePane ← t4.
+	variables ← (Vector new: 16) asStream.
+	proceed ≡ nil
+	  ifTrue: [proceed ← {false , nil , level}]
+! !
+!StackPane methodsFor: 'Initialization' stamp: ''!
+classInit | |
+	stackmenu ← Menu new string: 'stack
+spawn
+proceed
+restart'
+! !
+!StackPane methodsFor: 'Initialization' stamp: ''!
+interrupt: flag | |
+	proceed ◦ 1 ← flag
+! !
+!StackPane methodsFor: 'ListPane protocol' stamp: ''!
+selected | context instance code safeVec |
+	contextVarPane ifFalse: [^self].
+	context ← list ◦ selection.
+	instance ← context receiver.
+	code ← self code.
+	codePane showing: (code ifTrue: [code] ifFalse: ['']).
+	code
+	  ifTrue:
+		[contextVarPane names: (#(thisContext ) concat: context tempNames)
+			values: {context , context tempframe} wrt: context.
+		context tempframe ≡ nil ifTrue: [user notify: 'NIL TEMPFRAME']]
+	  ifFalse: [contextVarPane names: #(thisContext ) values: context inVector wrt: context].
+	safeVec ← Vector new: 2.
+	safeVec all← instance.
+	instanceVarPane names: (#(self ) concat: instance class instvars) values: safeVec wrt: context.
+	contextVarPane select: 1
+! !
+!StackPane methodsFor: 'ListPane protocol' stamp: ''!
+deselected | |
+	contextVarPane ≡ false
+	  ifFalse:
+		[codePane showing: ''.
+		contextVarPane names: (Vector new: 0) values: #(nil ) wrt: false.
+		instanceVarPane names: (Vector new: 0) values: #(nil ) wrt: false]
+! !
+!StackPane methodsFor: 'ListPane protocol' stamp: ''!
+locked | |
+	^contextVarPane and: [(selection > 0 and: [self dirty])]
+! !
+!StackPane methodsFor: 'NotifyWindow protocol' stamp: ''!
+compile: parseStream | ctxt selector method mcl |
+	ctxt ← list ◦ (selection max: 1).
+	mcl ← ctxt mclass.
+	proceed ◦ 2 ← selector ← codePane compile: parseStream in: mcl under: 'As yet unclassified'
+	  ifTrue:
+		[(codePane reflects: selection)
+		  ifTrue:
+			[(method ← mcl md methodorfalse: selector)
+			  ifTrue:
+				[self releaseAboveSelection.
+				ctxt restartWith: method.
+				proceed ◦ 1 ← true.
+				self of: list ◦ (selection to: list length) copy.
+				self select: 1]]]
+! !
+!StackPane methodsFor: 'NotifyWindow protocol' stamp: ''!
+execute: parseStream for: t2 | |
+	codePane ← t2.
+	^proceed ◦ 2 ← codePane execute: parseStream in: (selection = 0
+	  ifTrue: [false]
+	  ifFalse: [list ◦ selection]) to: nil
+! !
+!StackPane methodsFor: 'NotifyWindow protocol' stamp: ''!
+dirty | |
+	^codePane and: [codePane dirty]
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+continue: restarting | ctxt | " user notify: '*'. MethodContext howMany 50 40  30"
+	 "Close my window and resume my selected context, if any, else my first context.  If interrupted (proceed◦1) or restarting or a recompiled method, don't return a value; otherwise, return proceed◦2."
+	selection = 0
+	  ifTrue: [selection ← 1].
+	ctxt ← list ◦ selection.
+	self releaseAboveSelection "release abandoned contexts".
+	NoteTaker
+	  ifFalse:
+		[restarting
+		  ifTrue: [ctxt restart]
+		  ifFalse:
+			[(proceed ◦ 1 and: [selection = 1])
+			  ifFalse: [ "resume after interrupt"
+				ctxt push: proceed ◦ 2]]].
+	list ← false "Inhibit me closing.".
+	user topWindow closeNoRestart; erase.
+	user unschedule: user topWindow.
+	list ← nil.
+	NoteTaker
+	  ifTrue:
+		[thisContext sender releaseTo: ctxt.
+		thisContext sender← ctxt.
+		^proceed ◦ 2].
+	proceed ◦ 3 = 1
+	  ifTrue: [thisContext sender release].
+	Top run: ctxt at: proceed ◦ 3.
+	Top enable: proceed ◦ 3.
+	Top wakeup: proceed ◦ 3.
+	Top resetCurrent
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+code | mclass selector |
+	 "code of my selected context"
+	mclass ← (list ◦ selection) mclass.
+	selector ← self selector.
+	^(mclass canunderstand: selector)
+		ifTrue: [mclass code: selector]
+		ifFalse: [(LADDecompiler new decompile: selector in: mclass method: (list◦selection) method) asParagraph makeBoldPattern]
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+separator: c | |
+	 "called by selected via Class fieldNamesInto"
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+identifier: s | |
+	 "called by selected via Class fieldNamesInto"
+	variables next← s
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+releaseAboveSelection | |
+	selection > 1
+	  ifTrue:
+		[list ◦ (selection - 1) sender← nil.
+		(list ◦ 1) release "Fully"].
+	NoteTaker
+	  ifFalse: [ "??"
+		(list ◦ (selection max: 1)) verifyFrames]
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+selector | context |
+	context ← list ◦ (selection max: 1).
+	^context sender ≡ nil
+	  ifTrue: [false]
+	  ifFalse: [context selector]
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+trailer: s | |
+	 "called by selected via Class fieldNamesInto"
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+comment: s | |
+	 "called by selected via Class fieldNamesInto"
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+notify: msg | |
+	 "selected context doesnt know its variables"
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+declaration: dummy1 name: string asArg: dummy2 | |
+	variables next← string
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+contents | |
+	 "called by selected via Class fieldNamesInto"
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+terminate | |
+	 "called by parser close during initialization"
+! !
+!StackPane methodsFor: 'Private' stamp: ''!
+spawn | mclass selector parag oldparag |
+	mclass ← (list ◦ (selection max: 1)) mclass.
+	selector ← self selector.
+	parag ← (codePane
+			  ifTrue: [codePane contents]
+			  ifFalse:
+				[(mclass canunderstand: selector)
+				  ifTrue: [mclass code: selector]
+				  ifFalse: ['']]).
+	oldparag ← (codePane
+			  ifTrue: [codePane oldContents]
+			  ifFalse: [false]).
+	self compselection.
+	self select: 0.
+	mclass edit: selector para: parag formerly: oldparag
+! !
+!StackPane methodsFor: 'Window protocol' stamp: ''!
+close | |
+	NoteTaker
+	  ifTrue: [super close]
+	  ifFalse:
+		[Top enable: proceed ◦ 3.
+		super close.
+		list
+		  ifTrue: [(list ◦ 1) releaseFully]]
+! !
+!StackPane methodsFor: 'Window protocol' stamp: ''!
+yellowbug | t1 |
+	scrollBar hidewhile⦂ [
+		((t1 ← stackmenu bug) = 1
+		  ifTrue: [self revise: (list ◦ 1) "show a full backtrace" stack with: (selection = 0
+			  ifFalse: [list ◦ selection])]
+		  ifFalse:
+			[t1 = 2
+			  ifTrue: [self spawn "spawn a code editor"]
+			  ifFalse:
+				[t1 = 3
+				  ifTrue: [self continue: false "return to selected context"]
+				  ifFalse:
+					[t1 = 4
+					  ifTrue:
+						[NoteTaker
+						  ifTrue: [ "restart selected context"
+							frame flash]
+						  ifFalse: [self continue: true]]]]])]
 ! !
 ListPane subclass: #SystemPane
 	instanceVariableNames: 'mySysOrgVersion classPane'
@@ -907,4 +1532,54 @@ yellowbug | t1 |
 			  ifFalse:
 				[t1 = 2
 				  ifTrue: [SystemOrganization printCategory: list ◦ selection]])]]
+! !
+ListPane subclass: #VariablePane
+	instanceVariableNames: 'valuePane values context'
+	classVariableNames: ''
+	category: 'Panes and Menus'!
+!VariablePane methodsFor: 'Initialization' stamp: ''!
+to: t1 | |
+	valuePane ← t1
+! !
+!VariablePane methodsFor: 'Initialization' stamp: ''!
+names: vars values: t2 wrt: t3 | |
+	values ← t2.
+	context ← t3.
+	self of: vars
+! !
+!VariablePane methodsFor: 'Initialization' stamp: ''!
+classInit | |
+	varmenu ← Menu new string: 'inspect'
+! !
+!VariablePane methodsFor: 'ListPane protocol' stamp: ''!
+deselected | |
+	valuePane showing: ''
+! !
+!VariablePane methodsFor: 'ListPane protocol' stamp: ''!
+selected | |
+	valuePane showing: self value asString
+! !
+!VariablePane methodsFor: 'Notify/Inspect protocol' stamp: ''!
+compile: parag | |
+	window flash.
+	^false
+! !
+!VariablePane methodsFor: 'Notify/Inspect protocol' stamp: ''!
+execute: parseStream for: t2 | |
+	valuePane ← t2.
+	^valuePane execute: parseStream in: context to: values ◦ 1
+! !
+!VariablePane methodsFor: 'Private' stamp: ''!
+value | |
+	selection = 1
+	  ifTrue: [^values ◦ 1].
+	^values ◦ 2 inspectfield: selection - 1
+! !
+!VariablePane methodsFor: 'Window protocol' stamp: ''!
+yellowbug | |
+	selection = 0
+	  ifTrue: [window flash]
+	  ifFalse: [scrollBar hidewhile⦂ [
+			(varmenu bug = 1
+			  ifTrue: [self value inspect])]]
 ! !

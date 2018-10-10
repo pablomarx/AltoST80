@@ -1,3 +1,13 @@
+Object subclass: #Link
+	instanceVariableNames: 'nextLink'
+	classVariableNames: ''
+	category: 'Process scheduler'!
+!Link methodsFor: 'Successor Access' stamp: ''!
+nextLink: aLink | | nextLink ← aLink
+! !
+!Link methodsFor: 'Successor Access' stamp: ''!
+nextLink | | ^nextLink
+! !
 Object subclass: #LinkedList
 	instanceVariableNames: 'firstLink lastLink'
 	classVariableNames: ''
@@ -185,4 +195,33 @@ suspend | | <primitive: 71>
 !ProcessorScheduler methodsFor: 'Process Resumption and Suspension' stamp: ''!
 resume: newProcess | | <primitive: 70>
 	user croak
+! !
+LinkedList subclass: #Semaphore
+	instanceVariableNames: 'excessSignals'
+	classVariableNames: ''
+	category: 'Process scheduler'!
+!Semaphore methodsFor: 'Communication' stamp: ''!
+simulateSignal | |
+	 self isEmpty
+			ifTrue: [excessSignals ← excessSignals+1]
+			ifFalse: [Processor resume: self removeFirstLink]
+! !
+!Semaphore methodsFor: 'Communication' stamp: ''!
+wait | | <primitive: 69>
+	user croak
+! !
+!Semaphore methodsFor: 'Communication' stamp: ''!
+signal | | <primitive: 68>
+	user croak
+! !
+!Semaphore methodsFor: 'Communication' stamp: ''!
+simulateWait | |
+	 excessSignals>0
+			ifTrue: [excessSignals ← excessSignals-1]
+			ifFalse: [self addLastLink: Processor suspend]
+! !
+!Semaphore methodsFor: 'Initialization' stamp: ''!
+init | |
+	 super init.
+	 excessSignals ← 0
 ! !

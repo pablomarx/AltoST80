@@ -335,7 +335,7 @@ show | |
 ! !
 Object subclass: #Form
 	instanceVariableNames: 'extent bits offset figure ground'
-	classVariableNames: 'blankcursor brush aurora aurorarunning SPARE over color formmenu under dotsetter black white'
+	classVariableNames: 'reverse blankcursor brush aurora aurorarunning SPARE over color formmenu under dotsetter black white '
 	category: 'Graphics'!
 !Form methodsFor: 'As yet unclassified' stamp: ''!
 extent: t1 bits: t2 offset: t3 | |
@@ -770,7 +770,7 @@ hideData: complete | s t3 |
 ! !
 Set subclass: #Image
 	instanceVariableNames: ' origin rectangle path form superimage xgrid ygrid figure ground'
-	classVariableNames: 'under screen black white aurora over'
+	classVariableNames: 'reverse screen aurora aurorarunning black over white under '
 	category: 'Graphics'!
 !Image methodsFor: 'ACCESS TO PARTS' stamp: ''!
 ground: t1 | |
@@ -1388,6 +1388,168 @@ normalize | delta i |
 		path normalize.
 		origin translate: delta].
 	(1 to: self length) do: [:i | (self ◦ i) normalize]
+! !
+Set subclass: #Path
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Graphics'!
+!Path methodsFor: 'ACCESSING PATHS' stamp: ''!
+pointnearestto: p | distance i nearest d |
+	distance ← p dist: self ◦ 1 "return the index of the point  in the path nearest (manhatten norm) to p.".
+	nearest ← 1.
+	(1 to: position) do:
+		[:i | d ← p dist: self ◦ i.
+		d < distance
+		  ifTrue:
+			[nearest ← i.
+			distance ← d]].
+	^nearest
+! !
+!Path methodsFor: 'BUILDING PATHS' stamp: ''!
+comment | |
+	 "see Set for these ... add:, append:, and ◦← are the main ones"
+! !
+!Path methodsFor: 'INIT' stamp: ''!
+init | |
+	self default "must be executed for each new instance."
+! !
+!Path methodsFor: 'MEASURING' stamp: ''!
+size | |
+	^self rectangle "return the extent of the bounding rectangle that includes all the points in the path." extent
+! !
+!Path methodsFor: 'MEASURING' stamp: ''!
+origin | |
+	^self rectangle "return the origin of the bounding rectangle that includes all the points in the path." origin
+! !
+!Path methodsFor: 'MEASURING' stamp: ''!
+height | |
+	^self size "return the height of the bounding rectangle that includes all the points in the path." y
+! !
+!Path methodsFor: 'MEASURING' stamp: ''!
+corner | |
+	^self rectangle "return the corner of the bounding rectangle that includes all the points in the path." corner
+! !
+!Path methodsFor: 'MEASURING' stamp: ''!
+extent | |
+	^self rectangle "return the extent of the bounding rectangle that includes all the points in the path." extent
+! !
+!Path methodsFor: 'MEASURING' stamp: ''!
+width | |
+	^self size "return the width of the bounding rectangle that includes all the points in the path." x
+! !
+!Path methodsFor: 'MEASURING' stamp: ''!
+rectangle | r i |
+	r ← Rectangle new "return the bounding rectangle that includes all the points in the path." origin: self ◦ 1 extent: 1 ⌾ 1.
+	(1 to: self length) do: [:i | r ← r include: self ◦ i].
+	^r
+! !
+!Path methodsFor: 'MODIFYING PATHS' stamp: ''!
+insert: pt atindex: index | r |
+	index > position "insert pt at index in the path"
+	  ifTrue: [self next← pt]
+	  ifFalse:
+		[r ← (position = limit
+				  ifTrue: [self grow]
+				  ifFalse: [self growby: 0]).
+		position ← 0.
+		self append: (r ◦ 1 to: index - 1).
+		self next← pt.
+		self append: r ◦ (index to: r length)]
+! !
+!Path methodsFor: 'MODIFYING PATHS' stamp: ''!
+deleteindex: i | r |
+	r ← array ◦ (i + 1 to: position).
+	position ← i - 1.
+	self append: r.
+	array ◦ (position + 1) ← nil
+! !
+!Path methodsFor: 'SPECIAL PATHS' stamp: ''!
+addarcfrom: p1 via: p2 to: p3 | pa pb i k s |
+	s ← Path new "Kaehler method for Flegal curve" init.
+	s add: p1.
+	pa ← p2 - p1.
+	pb ← p3 - p2.
+	k ← 5 max: pa x abs + pa y abs + pb x abs + pb y abs / 20.
+	(1 to: k) do: [:i |  "k is a guess how many segments are appropriate"
+		s add: pa * i / k + p1 * (k - i) + (pb * (i - 1) / k + p2 * (i - 1)) / (k - 1)].
+	s add: p3.
+	(1 to: s length - 1) do: [:i | self addlinefrom: s ◦ i to: s ◦ (i + 1)]
+! !
+!Path methodsFor: 'SPECIAL PATHS' stamp: ''!
+addlinefrom: p1 to: p2 | x1 y1 dx dy yinc x0 y0 cdl i |
+	dx ← p2 x "for now just add points to the space at alto resolution between p1 and p2
+	inclusive" - p1 x.
+	dy ← p2 y - p1 y.
+	dx < 0
+	  ifTrue:
+		[dx ← 0 - dx.
+		dy ← 0 - dy.
+		x0 ← p2 x.
+		y0 ← p2 y]
+	  ifFalse:
+		[x0 ← p1 x.
+		y0 ← p1 y].
+	dy ≥ 0
+	  ifTrue: [yinc ← 1]
+	  ifFalse:
+		[yinc ← 0 - 1.
+		dy ← 0 - dy].
+	dx ≥ dy
+	  ifTrue:
+		[cdl ← dx / 2.
+		(0 to: dx) do:
+			[:i | self add: x0 ⌾ y0.
+			cdl ← cdl + dy.
+			x0 ← x0 + 1.
+			cdl > dx
+			  ifTrue:
+				[cdl ← cdl - dx.
+				y0 ← y0 + yinc]]]
+	  ifFalse:
+		[ "y is fastest mover"
+		cdl ← dy / 2.
+		(0 to: dy) do:
+			[:i | self add: x0 ⌾ y0.
+			cdl ← cdl + dx.
+			y0 ← y0 + yinc.
+			cdl > dy
+			  ifTrue:
+				[cdl ← cdl - dy.
+				x0 ← x0 + 1]]]
+! !
+!Path methodsFor: 'SYSTEM' stamp: ''!
+printOn: strm | t |
+	strm append: 'a Path: '.
+	(array is: String)
+	  ifTrue: [strm space append: self]
+	  ifFalse: [self do: [:t | strm space print: t]]
+! !
+!Path methodsFor: 'SYSTEM' stamp: ''!
+copy | t |
+	t ← Path new "returns a new instance of Path that is a copy " init.
+	t append: (array ◦ (1 to: position)) copy.
+	^t
+! !
+!Path methodsFor: 'SYSTEM' stamp: ''!
+pressCode | |
+	^6
+! !
+!Path methodsFor: 'TRANSFORMATIONS' stamp: ''!
+scale: factor | i |
+	(1 to: self length "scale every point in the path by factor") do: [:i | self ◦ i ← self ◦ i * factor]
+! !
+!Path methodsFor: 'TRANSFORMATIONS' stamp: ''!
+translate: delta | i |
+	(1 to: self length "add delta to every point in the path") do: [:i | self ◦ i ← self ◦ i + delta]
+! !
+!Path methodsFor: 'TRANSFORMATIONS' stamp: ''!
+normalize | delta i |
+	delta ← self origin "subtract the origin of the path from every point in the path".
+	(1 to: self length) do: [:i | self ◦ i ← self ◦ i - delta]
+! !
+!Path methodsFor: 'TRANSFORMATIONS' stamp: ''!
++ delta | i |
+	^self copy "add delta to every point in the path" translate: delta
 ! !
 Object subclass: #Point
 	instanceVariableNames: 'x y'
@@ -2336,4 +2498,152 @@ fromuser | t |
 !Rectangle methodsFor: 'Initialization' stamp: ''!
 copy | |
 	^origin copy "new rectangle" rect: corner copy
+! !
+BitBlt subclass: #Turtle
+	instanceVariableNames: 'frame location direction pen penDown inking'
+	classVariableNames: ''
+	category: 'Graphics'!
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+drawfrom: p1 to: p2 | offset delta dx dy px py P i |
+	(pen Is: Integer)
+	  ifTrue:
+		[self effect: 16 + 12 + (inking land: 3).
+		width ← height ← pen.
+		offset ← pen / 2 ⌾ (pen / 2)]
+	  ifFalse:
+		[(pen is: Form)
+		  ifTrue:
+			[self effect: 16 + (inking land: 3).
+			super sourceForm: pen.
+			width ← pen width.
+			height ← pen height.
+			offset ← pen offset]
+		  ifFalse: [user notify: 'pen must be a Form or integer']].
+	destX ← (p1 x - offset x) asInteger.
+	destY ← (p1 y - offset y) asInteger.
+	self drawLoopX: (p2 x - p1 x) asInteger Y: (p2 y - p1 y) asInteger.
+	(pen is: Form)
+	  ifTrue: [super release: pen]
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+white | |
+	self screen: white
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+frame | |
+	^frame
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+init | |
+	source ← sourceRaster ← (NoteTaker
+					  ifFalse: [0]).
+	super init.
+	super toDisplay.
+	frame ← user screenrect.
+	self pendn.
+	self color: black.
+	self width: 1.
+	self inking: storing.
+	self home.
+	self up " | n i [n←Turtle init. n color: gray; width: 4; inking: oring.
+	 for⦂ i to: 50 do⦂ [n go: i*4; turn: 89]]"
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+frame: t1 | |
+	frame ← t1
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+inking: t1 | |
+	inking ← t1
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+turn: degrees | |
+	direction ← direction + degrees
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+goto: p | old |
+	old ← location.
+	location ← p.
+	penDown
+	  ifTrue: [self drawfrom: old to: location]
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+penup | |
+	penDown ← false
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+pendn | |
+	penDown ← true
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+up | |
+	direction ← 270.0
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+go: dist | |
+	self goto: direction asRadians asDirection * dist + location
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+erase | |
+	super window clear: white
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+width | |
+	^width
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+black | |
+	self screen: black
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+drawLoopX: xDelta Y: yDelta | dx dy px py P i |<primitive: 77>
+	 "This is the Bresenham plotting algorithm (IBM Systems Journal Vol 4 No. 1, 1965).
+	It chooses a principal direction, and maintains a potential, P.
+	When P's sign changes, it is time to move in the minor direction as well."
+	dx ← xDelta sign.
+	dy ← yDelta sign.
+	px ← yDelta abs.
+	py ← xDelta abs.
+	super callBLT "first point".
+	py > px
+	  ifTrue:
+		[ "more horizontal"
+		P ← py / 2.
+		(1 to: py) do:
+			[:i | destX ← destX + dx.
+			(P ← P - px) < 0
+			  ifTrue:
+				[destY ← destY + dy.
+				P ← P + py].
+			super callBLT]]
+	  ifFalse:
+		[ "more vertical"
+		P ← px / 2.
+		(1 to: px) do:
+			[:i | destY ← destY + dy.
+			(P ← P - py) < 0
+			  ifTrue:
+				[destX ← destX + dx.
+				P ← P + px].
+			super callBLT]]
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+place: t1 | |
+	location ← t1
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+color: color | |
+	self screen: color
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+home | |
+	location ← frame center
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+width: w | |
+	self pen: w
+! !
+!Turtle methodsFor: 'As yet unclassified' stamp: ''!
+pen: t1 | |
+	pen ← t1
 ! !

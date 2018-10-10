@@ -1,3 +1,738 @@
+FilePage subclass: #EtherFilePage
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Files'!
+!EtherFilePage methodsFor: 'Ether' stamp: ''!
+packet | |
+	^page
+! !
+!EtherFilePage methodsFor: 'Ether' stamp: ''!
+pupType← p | |
+	^page pupType← p
+! !
+!EtherFilePage methodsFor: 'Ether' stamp: ''!
+pupType | |
+	^page pupType
+! !
+!EtherFilePage methodsFor: 'FilePage' stamp: ''!
+header: n ← v | |
+	^page word: (12 + n) ← v
+! !
+!EtherFilePage methodsFor: 'FilePage' stamp: ''!
+header: n | |
+	^page word: 12 + n "for accessing information after pup header, e.g. file commands and parameters.
+	n = 1 to (self headerLength-24)/2"
+! !
+!EtherFilePage methodsFor: 'FilePage' stamp: ''!
+trailerLength | |
+	^2 "checksum"
+! !
+!EtherFilePage methodsFor: 'FilePage' stamp: ''!
+length | |
+	^page pupLength - (self headerLength - 2)
+! !
+!EtherFilePage methodsFor: 'FilePage' stamp: ''!
+headerLength | |
+	^44 "ethernet encap.(4), pup header(20), file label (20=default)"
+! !
+!EtherFilePage methodsFor: 'FilePage' stamp: ''!
+dataString | |
+	^page pupString
+! !
+!EtherFilePage methodsFor: 'FilePage' stamp: ''!
+length: len | |
+	page pupLength← len + self headerLength - 2
+! !
+!EtherFilePage methodsFor: 'FilePage' stamp: ''!
+init | |
+	page ≡ nil
+	  ifTrue: [page ← file allocatePage "self page:"].
+	self length: 0
+! !
+Dict subclass: #File
+	instanceVariableNames: 'directory type name serialNumber pageReaders pageBuffer lastpn error'
+	classVariableNames: ''
+	category: 'Files'!
+!File methodsFor: 'Dictionary' stamp: ''!
+reopen | |
+	self sameFile
+	  ifFalse: [ "init and directory access"
+		directory get: self init].
+	self open
+! !
+!File methodsFor: 'Dictionary' stamp: ''!
+Find: page | |
+	^page pageNumber ≤ lastpn
+! !
+!File methodsFor: 'Dictionary' stamp: ''!
+release | |
+	
+! !
+!File methodsFor: 'Dictionary' stamp: ''!
+open | |
+	self findLastPage "compute lastpn"
+! !
+!File methodsFor: 'Dictionary' stamp: ''!
+found: page | |
+	self subError "read an existing page"
+! !
+!File methodsFor: 'Dictionary' stamp: ''!
+entryClass | |
+	self subError "a subclass of FilePage"
+! !
+!File methodsFor: 'Dictionary' stamp: ''!
+makeEntry: page | t2 |
+	(page is: self entryClass)
+	  ifTrue:
+		[page init.
+		page serialNumber: serialNumber.
+		^page].
+	^(t2 ← self entryClass new) dictionary: self.
+	t2 init.
+	t2 pageNumber: page.
+	t2 serialNumber: serialNumber
+! !
+!File methodsFor: 'Dictionary' stamp: ''!
+close | |
+	
+! !
+!File methodsFor: 'DictionaryEntry' stamp: ''!
+printOn: strm | |
+	strm append: name
+! !
+!File methodsFor: 'DictionaryEntry' stamp: ''!
+name | |
+	^name
+! !
+!File methodsFor: 'DictionaryEntry' stamp: ''!
+name: t1 | |
+	name ← t1
+! !
+!File methodsFor: 'DictionaryEntry' stamp: ''!
+dictionary: t1 | |
+	directory ← t1
+! !
+!File methodsFor: 'DictionaryEntry' stamp: ''!
+dictionary | |
+	^directory
+! !
+!File methodsFor: 'DictionaryEntry' stamp: ''!
+match: entry | |
+	^self name match: entry name
+! !
+!File methodsFor: 'DictionaryEntry' stamp: ''!
+init | |
+	lastpn ← false.
+	error ← nullString.
+	serialNumber ← String new: 4
+! !
+!File methodsFor: 'Documentation' stamp: ''!
+help | |
+	 "
+
+A common way to access a File is through a FileStream.
+	to create a FileStream on either an old or new file:
+		<FileStream> ← <FileDirectory> file: <String>. (see also oldFile: and newFile:)
+	e.g. f ← dp0 file: 'test'.
+
+	The default access mode (readwriteshorten) allows you to read or write, and
+	automatically shorten a File (to its current position) upon closing).  If you want to
+	only read a file, readonly mode is faster and safer.
+
+Some common ways to access a FileStream (see Stream and FileStream):
+	reading a character (an Integer between 0 and 255)
+		next, ◦
+	reading a String of characters
+		upto:	, next:, nextString, contents
+	reading other kinds of objects
+		nextword, word:, nextNumber:, nextParagraph
+
+	writing characters
+		next←, ◦←
+	writing a String of characters
+		append:, nextString←
+	writing other kinds of objects
+		nextword, word:←, print:
+
+	finding position
+		position, wordposition, length, end, positionSize:
+
+	changing position (besides reading/writing)
+		position←, skip:, skipTo:, reset, settoend, wordposition←, position:size:
+
+When finished with a FileStream, <FileStream> close.
+
+For information about using or creating other views of file organizations (Btree, file-based object dictionaries, Findit), about WFS and Juniper files, and general file problems, see Steve Weyer.
+"
+! !
+!File methodsFor: 'File Length' stamp: ''!
+lastPage: t1 | |
+	 "for those who know what they're doing"
+	lastpn ← t1
+! !
+!File methodsFor: 'File Length' stamp: ''!
+findLastPage | |
+	^lastpn ← self pageFrom: self length "the default definitions for findLastPage and length are circular.
+	at least one of them must be defined by a subclass"
+! !
+!File methodsFor: 'File Length' stamp: ''!
+pageFrom: len | |
+	^(len - 1 "compute page number for a character index" / self entryClass new dataLength) asSmall + 1
+! !
+!File methodsFor: 'File Length' stamp: ''!
+lastPage | |
+	lastpn
+	  ifTrue: [ "length in pages"
+		^lastpn].
+	^self findLastPage
+! !
+!File methodsFor: 'File Length' stamp: ''!
+endFile: page | |
+	self subError "make File end with this FilePage. false means delete all of File"
+! !
+!File methodsFor: 'File Length' stamp: ''!
+lastFullPage | |
+	(self read: self lastPage) full
+	  ifTrue: [^lastpn].
+	^lastpn - 1
+! !
+!File methodsFor: 'File Length' stamp: ''!
+length | page |
+	page ← self read: self lastPage "length in characters" "defeat ST76 optimization".
+	.
+	^lastpn - 1 * page dataLength + page length
+! !
+!File methodsFor: 'FileDirectory' stamp: ''!
+type | |
+	^type
+! !
+!File methodsFor: 'FileDirectory' stamp: ''!
+delete | |
+	^directory delete: self
+! !
+!File methodsFor: 'FileDirectory' stamp: ''!
+directory: t1 | |
+	directory ← t1
+! !
+!File methodsFor: 'FileDirectory' stamp: ''!
+directory | |
+	^directory
+! !
+!File methodsFor: 'FileDirectory' stamp: ''!
+type: t1 | |
+	 "used by different Files in different ways, e.g. read/write mode"
+	type ← t1
+! !
+!File methodsFor: 'FileDirectory' stamp: ''!
+rename: newName | |
+	^directory rename: self newName: newName
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+error: e | t2 |
+	e
+	  ifTrue:
+		[e ← ((t2 ← Stream default) append: name.
+				t2 append: ' in '.
+				t2 append: e.
+				t2 append: ', '.
+				t2 append: error.
+				t2 contents).
+		error ← nullString.
+		^super error: e].
+	^false
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+Read: page | |
+	self subError "return page or false"
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+newPage: pn | |
+	^self makeEntry: pn
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+newPage | |
+	^self makeEntry: 0
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+Write: page | |
+	self subError "update lastpn, write page and return result (maybe next page)"
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+doCommand: com page: page error: s | |
+	self subError "execute a File command on page. if an error occurs, include
+	error ← 'some error message'.
+	⇑self error: s
+	if s is false, returns false.
+	otherwise s is passed to an error routine"
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+read: pn | |
+	^self Read: (self makeEntry: pn)
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+Get: page | p pn |
+	pn ← page pageNumber.
+	(p ← self Read: page)
+	  ifTrue: [^p].
+	 "current last page of the file is assumed full"
+	(lastpn + 1 to: pn - 1) "return an empty last page which is not written yet" do:
+		[:p | page pageNumber: p.
+		page ← self Write: page].
+	page pageNumber: pn.
+	page length: 0.
+	^page
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+error | |
+	^error
+! !
+!File methodsFor: 'FilePage' stamp: ''!
+get: pn | |
+	^self Get: (self makeEntry: pn)
+! !
+!File methodsFor: 'FileStream' stamp: ''!
+asStream | |
+	^FileStream new on: (self open.
+	self get: 1)
+! !
+!File methodsFor: 'Initialize' stamp: ''!
+sameFile | |
+	 "is File's current internal representation the same as what is stored externally? if so, usually can avoid some initialization, directory lookup"
+	^false
+! !
+!File methodsFor: 'Initialize' stamp: ''!
+classInit | |
+	FilePool declare: #(read write shorten ) as: #(1 2 4 ) "subclasses of File may want to share variables in pools.
+	execute before filin:
+		Smalltalk declare: ↪XFilePool as: (SymbolTable new init: 16).
+	in classInit: XFilePool declare: ↪() as: ↪()"
+! !
+!File methodsFor: 'Name' stamp: ''!
+serialNumber: s | |
+	(s is: String) "stored as a String of 4 characters rather than as various Numbers"
+	  ifTrue: [serialNumber ← s]
+	  ifFalse:
+		[(s is: Substring)
+		  ifTrue: [serialNumber ← s copy]
+		  ifFalse:
+			[(s Is: Integer)
+			  ifTrue:
+				[serialNumber word: 1 ← 0.
+				serialNumber word: 2 ← s]
+			  ifFalse:
+				[ "Vector of Integers"
+				serialNumber word: 1 ← s ◦ 1.
+				serialNumber word: 2 ← s ◦ 2]]]
+! !
+!File methodsFor: 'Name' stamp: ''!
+serialNumber | |
+	^serialNumber
+! !
+Dict subclass: #FileDirectory
+	instanceVariableNames: 'directory fileReaders'
+	classVariableNames: ''
+	category: 'Files'!
+!FileDirectory methodsFor: 'Dictionary' stamp: ''!
+printOn: strm | |
+	strm append: (self obsolete
+	  ifTrue: ['a closed ']
+	  ifFalse: ['an open ']).
+	strm append: self class title.
+	strm append: ' on '.
+	self server printOn: strm
+! !
+!FileDirectory methodsFor: 'Dictionary' stamp: ''!
+close | |
+	self obsolete
+	  ifFalse:
+		[externalViews delete: self.
+		self release]
+! !
+!FileDirectory methodsFor: 'Dictionary' stamp: ''!
+checkName: s | |
+	(s empty "default behavior is to get rid of ending period.
+	subclasses can do any kind of checking they want and
+	return false if name is no good" or: [s last ≠ ('.' ◦ 1)])
+	  ifTrue: [^s].
+	^s copy: 1 to: s length - 1
+! !
+!FileDirectory methodsFor: 'Dictionary' stamp: ''!
+error: e entry: file | |
+	^file error: e
+! !
+!FileDirectory methodsFor: 'Dictionary' stamp: ''!
+Find: file | name |
+	(name ← self checkName: file name)
+	  ifTrue:
+		[file name: name.
+		^self Position← file].
+	file error: 'illegal name'
+! !
+!FileDirectory methodsFor: 'Dictionary' stamp: ''!
+insert: file | old |
+	file ← self makeEntry: file "note: this changes the default behavior found in Dict.
+	this creates a new version rather than generating an error if the name exists".
+	self versionNumbers
+	  ifTrue: [file ← self makeEntry: (file name "ignore explicit version and directory will create a next version" asStream upto: '!' ◦ 1)]
+	  ifFalse:
+		[(self Find: file)
+		  ifTrue:
+			[old ← self makeEntry: file name + '$' "otherwise, if the file already exists,
+		rename it to name$, deleting that file first if it exists".
+			(self Find: old)
+			  ifTrue: [self Delete: old].
+			self rename: file name newName: old name "reposition to original name".
+			(self Find: file)
+			  ifTrue: [self error: 'insert/rename ??' entry: file]] "file didn't exist"].
+	self Insert: file.
+	^file
+! !
+!FileDirectory methodsFor: 'Dictionary' stamp: ''!
+open | |
+	externalViews insert: self
+! !
+!FileDirectory methodsFor: 'Dictionary' stamp: ''!
+entryClass | |
+	self subError "a subclass of File"
+! !
+!FileDirectory methodsFor: 'DictionaryEntry' stamp: ''!
+dictionary: t1 | |
+	directory ← t1
+! !
+!FileDirectory methodsFor: 'DictionaryEntry' stamp: ''!
+dictionary | |
+	^directory
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+asFtpDirectory | ftp |
+	(ftp ← FtpDirectory new "to allow convenient (kludgey) access to file servers (e.g. phylum, dpj) via Ftp") server: self server.
+	ftp open.
+	ftp userName empty
+	  ifTrue: [ftp login: self userName password: self userPassword].
+	^ftp
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+server | |
+	^directory
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+store: s1 as: s2 | f t4 |
+	(s1 is: FileStream)
+	  ifTrue: [f ← s1]
+	  ifFalse:
+		[(dp0 exists: s1)
+		  ifTrue: [f ← dp0 oldFile: s1]
+		  ifFalse: [^false]].
+	f readonly.
+	(t4 ← self file: s2) append: f.
+	t4 close.
+	f close
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+retrieve: s1 as: s2 | f t4 |
+	(self exists: s1)
+	  ifTrue: [f ← self oldFile: s1]
+	  ifFalse: [^false].
+	f readonly.
+	(t4 ← ((s2 is: FileStream)
+			  ifTrue: [s2]
+			  ifFalse: [dp0 file: s2])) append: f.
+	t4 close.
+	f close
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+userPassword | |
+	^currentProfile ≡ nil
+	  ifTrue: ['']
+	  ifFalse: [currentProfile userPassword: self server]
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+userName | |
+	^currentProfile ≡ nil
+	  ifTrue: ['']
+	  ifFalse: [currentProfile userName: self server]
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+login: name password: pw | |
+	self subError
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+login: name | |
+	^self login: name password: '' "or prompt?"
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+store: s | t |
+	(s is: Vector)
+	  ifTrue: [s do: [:t | self store: t as: t]]
+	  ifFalse: [^self store: s as: s]
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+server: t1 | |
+	directory ← t1
+! !
+!FileDirectory methodsFor: 'FTP' stamp: ''!
+retrieve: s | t |
+	(s is: Vector)
+	  ifTrue: [s do: [:t | self retrieve: t as: t]]
+	  ifFalse: [^self retrieve: s as: s]
+! !
+!FileDirectory methodsFor: 'File' stamp: ''!
+versionNumbers | |
+	^false "generally, version numbers are not supported"
+! !
+!FileDirectory methodsFor: 'File' stamp: ''!
+directory | |
+	^directory
+! !
+!FileDirectory methodsFor: 'File' stamp: ''!
+newPage | |
+	^(self makeEntry: nullString) "return a dummy FilePage from a dummy File" newPage
+! !
+!FileDirectory methodsFor: 'File' stamp: ''!
+allocateSN: file | |
+	self subError "allocate a new serial number for a File"
+! !
+!FileDirectory methodsFor: 'FileStream' stamp: ''!
+filin: s format: ft | |
+	user displayoffwhile⦂ [
+		 "read Class definitions or Changes from FileStreams or PressFiles
+	ft: 1 (FileStream=Bravo), 2 (Press)"
+		((s is: Vector)
+		  ifTrue: [s do: [:s | self filin: s format: ft]]
+		  ifFalse:
+			[ "special case for Alto and patterns"
+			((s is: String) and: [((s has: '*' ◦ 1) or: [(s has: '#' ◦ 1)])])
+			  ifTrue: [self filin: (self filesMatching: s) format: ft]
+			  ifFalse:
+				[(s is: UniqueString)
+				  ifTrue: [s ← s +  "Class name"
+							(ft = 1
+							  ifTrue: ['.st']
+							  ifFalse: ['.press'])].
+				(ft = 1
+				  ifTrue: [self oldFile: s]
+				  ifFalse: [self pressfile: s]) filin]])]
+! !
+!FileDirectory methodsFor: 'FileStream' stamp: ''!
+filin: s | |
+	self filin: s format: 1
+! !
+!FileDirectory methodsFor: 'FileStream' stamp: ''!
+pressfile: name | |
+	^PressFile new of: (self file: name)
+! !
+!FileDirectory methodsFor: 'FileStream' stamp: ''!
+oldFile: name | |
+	^(self find: name) asStream
+! !
+!FileDirectory methodsFor: 'FileStream' stamp: ''!
+newFile: name | |
+	^(self insert: name) asStream
+! !
+!FileDirectory methodsFor: 'FileStream' stamp: ''!
+file: name | |
+	^(self get: name) asStream
+! !
+!FileDirectory methodsFor: 'FileStream' stamp: ''!
+pressfilin: s | |
+	self filin: s format: 2
+! !
+!FileDirectory methodsFor: 'Initialize' stamp: ''!
+directory: t1 | |
+	directory ← t1
+! !
+!FileDirectory methodsFor: 'Juniper' stamp: ''!
+exceptionHandler: eh | |
+	 "default is to do nothing"
+! !
+!FileDirectory methodsFor: 'Juniper' stamp: ''!
+closeTransaction | |
+	 "default is to do nothing"
+! !
+Dict subclass: #FilePage
+	instanceVariableNames: 'file page'
+	classVariableNames: ''
+	category: 'Files'!
+!FilePage methodsFor: 'Dictionary' stamp: ''!
+reopen | |
+	file reopen.
+	file makeEntry: self "self may have been released"
+! !
+!FilePage methodsFor: 'Dictionary' stamp: ''!
+asStream | |
+	^self asStream: Stream new
+! !
+!FilePage methodsFor: 'Dictionary' stamp: ''!
+◦ i | |
+	^page ◦ (self checkIndex: i)
+! !
+!FilePage methodsFor: 'Dictionary' stamp: ''!
+◦ i ← v | |
+	^page ◦ (self checkIndex: i) ← v
+! !
+!FilePage methodsFor: 'DictionaryEntry' stamp: ''!
+init | |
+	page ≡ nil
+	  ifTrue: [page ← String new: self pageLength "self page:"].
+	self length: 0 "not sure who depends on this besides FileStream read:"
+! !
+!FilePage methodsFor: 'DictionaryEntry' stamp: ''!
+name: sp | |
+	self init.
+	self serialNumber: sp ◦ 1.
+	self pageNumber: sp ◦ 2
+! !
+!FilePage methodsFor: 'DictionaryEntry' stamp: ''!
+dictionary: t1 | |
+	file ← t1
+! !
+!FilePage methodsFor: 'DictionaryEntry' stamp: ''!
+dictionary | |
+	^file
+! !
+!FilePage methodsFor: 'File' stamp: ''!
+read: pn | |
+	self pageNumber: pn "recycle self".
+	self length: 0.
+	^file Read: self
+! !
+!FilePage methodsFor: 'File' stamp: ''!
+endFile | |
+	^file endFile: self
+! !
+!FilePage methodsFor: 'File' stamp: ''!
+get: pn | |
+	self pageNumber: pn "recycle self".
+	self length: 0.
+	^file Get: self
+! !
+!FilePage methodsFor: 'File' stamp: ''!
+write | |
+	^file Write: self "some files, e.g. AltoFile, will return a last empty page instead of a full one"
+! !
+!FilePage methodsFor: 'File' stamp: ''!
+file | |
+	^file
+! !
+!FilePage methodsFor: 'File' stamp: ''!
+doCommand: com error: s | |
+	^file doCommand: com page: self error: s
+! !
+!FilePage methodsFor: 'Initialize' stamp: ''!
+file: t1 | |
+	file ← t1
+! !
+!FilePage methodsFor: 'Initialize' stamp: ''!
+page: t1 | |
+	page ← t1
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+pageNumber: pn | |
+	self subError
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+header: n | |
+	^page word: n "return n-th header word"
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+pageNumber | |
+	self subError
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+serialNumber: sn | |
+	self subError
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+serialNumber | |
+	^file serialNumber
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+dataEnd: pos | |
+	self length: pos - self headerLength
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+address: a | |
+	self subError
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+word: i ← v | |
+	^page word: (self headerLength "no bounds checking" / 2 + i) ← v
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+lastPage | |
+	^self pageNumber "is this last page in file?" ≥ file lastPage
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+length: len | |
+	self subError
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+address | |
+	self subError "page address, e.g. on a disk"
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+dataEnd | |
+	^self headerLength "logical end of data in page" + self length
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+checkIndex: i | |
+	(i > 0 and: [i ≤ self length])
+	  ifTrue: [^i + self headerLength].
+	self error: 'illegal index'
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+full | |
+	^self length = self dataLength
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+word: i | |
+	^page word: self headerLength "no bounds checking" / 2 + i
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+length | |
+	self subError "logical length of data in page"
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+header: n ← v | |
+	^page word: n ← v "set and return n-th header word"
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+dataString | |
+	^page
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+trailerLength | |
+	^0 "length of stuff after data ends in page"
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+pageLength | |
+	^self headerLength "physical size of page" + self dataLength + self trailerLength
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+page | |
+	^page
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+dataMaxEnd | |
+	^self headerLength "physical end of data in page" + self dataLength
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+dataBeginning | |
+	^self headerLength
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+headerLength | |
+	^0 "length of stuff before data begins in page"
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+asStream: s | offset |
+	offset ← self headerLength.
+	^s of: self dataString from: offset + 1 to: offset + self length "self dataEnd"
+! !
+!FilePage methodsFor: 'Page' stamp: ''!
+dataLength | |
+	^512 "physical length of data in page. default"
+! !
 Stream subclass: #FileStream
 	instanceVariableNames: 'page dirty rwmode'
 	classVariableNames: ''

@@ -1,3 +1,361 @@
+Object subclass: #Array
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Basic Data Structures'!
+!Array methodsFor: 'Comparing' stamp: ''!
+hash | |
+	 "make sure = arrays hash =ly"
+	self length = 0
+	  ifTrue: [^17171].
+	^(self ◦ 1) hash + (self ◦ self length) hash
+! !
+!Array methodsFor: 'Compatibility' stamp: ''!
+isArray | |
+	
+! !
+!Array methodsFor: 'Compatibility' stamp: ''!
+species | |
+	^Vector
+! !
+!Array methodsFor: 'Compatibility' stamp: ''!
+isIntervalBy1 | |
+	^false
+! !
+!Array methodsFor: 'Conversion' stamp: ''!
+sumTo: subTotal | x |
+	 "add all my elements to this subTotal (usually 0 or 0.0)"
+	self do: [:x | subTotal ← subTotal + x].
+	^subTotal
+! !
+!Array methodsFor: 'Conversion' stamp: ''!
+transform⦂ each to⦂ expr | s i |
+	 "a copy of me with each element transformed"
+	s ← (self species new: self length) asStream.
+	(1 to: self length) do:
+		[:i | each value← self ◦ i.
+		s next← expr eval].
+	^s asArray
+! !
+!Array methodsFor: 'Conversion' stamp: ''!
+frequencies | d x |
+	 "return a sorted vector ((freq item) (freq item) ...)"
+	d ← Dictionary new init: 64.
+	self do: [:x | d tally: x].
+	^d asInvertedVector sort
+! !
+!Array methodsFor: 'Conversion' stamp: ''!
+asSet | |
+	^Set new of: self to: self length
+! !
+!Array methodsFor: 'Conversion' stamp: ''!
+sum | |
+	^self sumTo: 0
+! !
+!Array methodsFor: 'Conversion' stamp: ''!
+viewer | |
+	^SetReader new of: self
+! !
+!Array methodsFor: 'Conversion' stamp: ''!
+asStream | |
+	^Stream new of: self
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+do: aBlock | i len |
+	len← self length.  i←0.
+	[(i←i+1) ≤ len] whileTrueDo: [aBlock value: self◦i]
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+collect: aBlock | i len result |
+	result← self species new: (len← self length).
+	i←0.
+	[(i←i+1) ≤ len]
+		whileTrueDo: [result◦i← aBlock value: self◦i].
+	^result
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+insertSorted: x | a c i |
+	 "self is assumed to be sorted"
+	i ← self findSorted: x.
+	c ← (a ← self species new: self length + 1) asStream.
+	self ◦ (1 to: i) copyto: c.
+	c next← x.
+	self ◦ (i + 1 to: self length) copyto: c.
+	^a
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+copy: a to: b to: t | i s me |
+	s ← t asStream.
+	me ← Stream new of: self from: a to: b.
+	(a to: b) do: [:i |  "general code wont stop at false"
+		s next← me next].
+	^t
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+concat: arg | x s |
+	x ← self species new: self length + arg length.
+	self copyto: (s ← x asStream).
+	arg copyto: s.
+	^x
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+without: index | s me i |
+	 "if index in range, return self without ◦index"
+	(index cansubscript: self)
+	  ifTrue:
+		[s ← (self species new: self length - 1) asStream.
+		me ← self asStream.
+		(1 to: self length) do:
+			[:i | i = index
+			  ifTrue: [me next]
+			  ifFalse: [s next← me next]].
+		^s asArray]
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+copy: a to: b | |
+	^self copy: a to: b to: (self species new: b - a + 1)
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+replace: a to: b by: s | x xs |
+	x ← self species new: self length + s length - (1 + b - a).
+	xs ← x asStream.
+	self copy: 1 to: a - 1 to: xs.
+	s copy: 1 to: s length to: xs.
+	self copy: b + 1 to: self length to: xs.
+	^x
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+notNil | t i |
+	 "copy self (which contains no falses) removing all nils"
+	t ← (self species new: self length - (self count: nil)) asStream.
+	self do:
+		[:i | i ≡ nil
+		  ifFalse: [t next← i]].
+	^t asArray
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+copyto: t | |
+	^self copy: 1 to: self length to: t
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+insertNonDescending: x | |
+	 "self is assumed to be sorted"
+	^self insertSorted: x
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+grow | |
+	^self growto: (4 max: self length * 2)
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+delete: obj | s each |
+	s ← (self species new: self length) asStream.
+	self do:
+		[:each | obj = each
+		  ifFalse: [s next← each]].
+	^s contents
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+growto: n | |
+	^self copy: 1 to: self length "copyto:" to: (self species new: n)
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+copy | |
+	^self copy: 1 to: self length
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
+growby: n | |
+	^self growto: self length + n
+! !
+!Array methodsFor: 'Copying and Altering' stamp: ''!
++ arg | |
+	^self concat: arg
+! !
+!Array methodsFor: 'Mapping' stamp: ''!
+subscripts: x ← val | |
+	 "subrange replacement"
+	self length ≠ val length
+	  ifTrue: [user notify: 'lengths not commensurate']
+	  ifFalse:
+		[val copyto: (Substring new data: x map: self).
+		^val]
+! !
+!Array methodsFor: 'Mapping' stamp: ''!
+subscripts: x | |
+	 "subarrays"
+	^Substring new data: x map: self
+! !
+!Array methodsFor: 'Mapping' stamp: ''!
+cansubscript: a | i |
+	self do:
+		[:i | (i cansubscript: a)
+		  ifFalse: [^false]]
+! !
+!Array methodsFor: 'Permutation' stamp: ''!
+swap: i with: j | t |
+	t ← self ◦ i.
+	self ◦ i ← self ◦ j.
+	self ◦ j ← t
+! !
+!Array methodsFor: 'Permutation' stamp: ''!
+promote: t | n |
+	n ← self find: t.
+	n = 0
+	  ifFalse:
+		[self ◦ (n to: 2 by: ¬1) ← self ◦ (n - 1 to: 1 by: ¬1).
+		self ◦ 1 ← t]
+! !
+!Array methodsFor: 'Permutation' stamp: ''!
+sort: i to: j | di dij dj tt ij k l n |
+	(n ← j + 1 "Sort elements i through j of self to be nondescending." "The prefix d means the data at." - i) ≤ 1
+	  ifFalse:
+		[ "Nothing to sort." "Sort di,dj."
+		di ← self ◦ i.
+		dj ← self ◦ j.
+		di > dj
+		  ifTrue:
+			[self swap: i with: j.
+			tt ← di.
+			di ← dj.
+			dj ← tt].
+		n = 2
+		  ifFalse:
+			[ "They are the only two elements."
+			ij ← i + j lshift: ¬1 "ij is the midpoint of i and j." "Sort di,dij,dj.  Make dij be their median.".
+			dij ← self ◦ ij.
+			di > dij
+			  ifTrue:
+				[self swap: i with: ij.
+				dij ← di]
+			  ifFalse:
+				[dj < dij
+				  ifTrue:
+					[self swap: j with: ij.
+					dij ← dj]].
+			n = 3
+			  ifFalse:
+				[ "They are the only three elements." "Find k>i and l<j such that dk,dij,dl are in reverse order.  Swap k and l.  Repeat this procedure until j and k pass each other."
+				k ← i.
+				l ← j.
+				[[self ◦ (l ← l - 1) > dij] whileTrueDo: [].
+				[self ◦ (k ← k + 1) < dij] whileTrueDo: [].
+				k ≤ l] whileTrueDo: [self swap: k with: l "Now l<k (either 1 or 2 less), and di through dl are all less than dk through dj.  Sort those two segments."].
+				self sort: i to: l.
+				self sort: k to: j]]]
+! !
+!Array methodsFor: 'Permutation' stamp: ''!
+permutationToSort | |
+	^(self ◦ (1 to: self length "Return a Vector, permutation, such that self◦permutation is sorted nondescending.  Do not alter self.") copy sort: 1 to: self length) map
+! !
+!Array methodsFor: 'Permutation' stamp: ''!
+reverse | |
+	^Substring new data: self map: (self length to: 1 by: ¬1)
+! !
+!Array methodsFor: 'Permutation' stamp: ''!
+sort | |
+	self sort: 1 to: self length "Permute my elements so they are sorted nondescending.  Note: if I am a substring, only my map will be permuted.  In certain situations, this may not be what you expect."
+! !
+!Array methodsFor: 'Reading and Writing' stamp: ''!
+first | |
+	^self ◦ 1
+! !
+!Array methodsFor: 'Reading and Writing' stamp: ''!
+all← val | i |
+	(1 to: self length) do: [:i | self ◦ i ← val]
+! !
+!Array methodsFor: 'Reading and Writing' stamp: ''!
+last | |
+	^self ◦ self length
+! !
+!Array methodsFor: 'Reading and Writing' stamp: ''!
+last← val | |
+	^self ◦ self length ← val
+! !
+!Array methodsFor: 'Reading and Writing' stamp: ''!
+= arg | x |
+	arg isArray
+	  ifTrue:
+		[self length ≠ arg length
+		  ifTrue: [^false].
+		(1 to: self length) do:
+			[:x | self ◦ x = (arg ◦ x)
+			  ifFalse: [^false]].
+		^true]
+	  ifFalse: [^false]
+! !
+!Array methodsFor: 'Reading and Writing' stamp: ''!
+< v | |
+	 "for sorting vectors by first element"
+	^self ◦ 1 < (v ◦ 1)
+! !
+!Array methodsFor: 'Reading and Writing' stamp: ''!
+> v | |
+	 "for sorting vectors by first element"
+	^self ◦ 1 > (v ◦ 1)
+! !
+!Array methodsFor: 'Searching' stamp: ''!
+first⦂ x suchThat⦂ predicate | i |
+	(1 to: self length) do:
+		[:i | x value← self ◦ i.
+		predicate eval
+		  ifTrue: [^self ◦ i]].
+	^false
+! !
+!Array methodsFor: 'Searching' stamp: ''!
+all⦂ variable suchThat⦂ expr | s i x |
+	 "a copy of some of me"
+	s ← (self species new: self length) asStream.
+	(1 to: self length) do:
+		[:i | x ← self ◦ i.
+		variable value← x.
+		expr eval
+		  ifTrue: [s next← x]].
+	^s contents
+! !
+!Array methodsFor: 'Searching' stamp: ''!
+find⦂ x suchThat⦂ predicate | i |
+	(1 to: self length) do:
+		[:i | x value← self ◦ i.
+		predicate eval
+		  ifTrue: [^i]].
+	^0
+! !
+!Array methodsFor: 'Searching' stamp: ''!
+findSorted: x | lo mid hi |
+	 " returns index of largest element ≤ x "
+	hi ← self length + 1.
+	lo ← 1.
+	[lo < hi] whileTrueDo:
+		[ "binary search; self must be sorted"
+		self ◦ (mid ← lo + hi / 2) > x
+		  ifTrue: [hi ← mid]
+		  ifFalse: [lo ← mid + 1]].
+	^hi - 1 " 0≤result≤length "
+! !
+!Array methodsFor: 'Searching' stamp: ''!
+findnon: x | i |
+	(1 to: self length) do:
+		[:i | self ◦ i ≠ x
+		  ifTrue: [^i]].
+	^0
+! !
+!Array methodsFor: 'Searching' stamp: ''!
+count: x | i n |
+	n ← 0.
+	(1 to: self length) do:
+		[:i | x = (self ◦ i)
+		  ifTrue: [n ← n + 1]].
+	^n
+! !
+!Array methodsFor: 'Searching' stamp: ''!
+find: x | i |
+	(1 to: self length) do:
+		[:i | self ◦ i = x
+		  ifTrue: [^i]].
+	^0
+! !
+!Array methodsFor: 'Searching' stamp: ''!
+has: x | |
+	^(self find: x) ≠ 0
+! !
 Array subclass: #Interval
 	instanceVariableNames: 'start stop step length'
 	classVariableNames: ''
@@ -80,6 +438,267 @@ length | |
 !Interval methodsFor: 'Reading and Writing' stamp: ''!
 ◦ x ← val | |
 	user notify: 'Intervals are not for writing into'
+! !
+Stream subclass: #PQueue
+	instanceVariableNames: 'readposition'
+	classVariableNames: ''
+	category: 'Basic Data Structures'!
+!PQueue methodsFor: 'FIFO access' stamp: ''!
+length | l |
+	Top critical⦂ [(l ← position - readposition)].
+	^l
+! !
+!PQueue methodsFor: 'FIFO access' stamp: ''!
+dequeue: num | n |
+	Top critical⦂ [
+		(position - readposition < num
+		  ifTrue: [n ← false]
+		  ifFalse:
+			[n ← (array ◦ (readposition + 1 to: readposition + num)) copy.
+			readposition ← readposition + num])].
+	^n
+! !
+!PQueue methodsFor: 'FIFO access' stamp: ''!
+pastend← x | n i |
+	 "simple arg"
+	Top critical⦂ [
+		(position ≥ limit
+		  ifTrue:
+			[readposition = 0
+			  ifTrue: [super pastend← x]
+			  ifFalse:
+				[n ← position - readposition.
+				(1 to: n) do: [:i | array ◦ i ← array ◦ (readposition + i)].
+				readposition ← 0.
+				position ← n.
+				self next← x]]
+		  ifFalse: [array ◦ (position ← position + 1) ← x])].
+	^x
+! !
+!PQueue methodsFor: 'FIFO access' stamp: ''!
+myend | |
+	^true
+! !
+!PQueue methodsFor: 'FIFO access' stamp: ''!
+skip: x | |
+	Top critical⦂ [(readposition ← readposition + x)]
+! !
+!PQueue methodsFor: 'FIFO access' stamp: ''!
+peek | n |
+	Top critical⦂ [
+		(readposition ≥ position
+		  ifTrue:
+			[readposition ← position ← 0.
+			n ← false]
+		  ifFalse: [n ← array ◦ (readposition + 1)])].
+	^n
+! !
+!PQueue methodsFor: 'FIFO access' stamp: ''!
+next | n |<primitive: 75>
+	Top critical⦂ [
+		(readposition ≥ position
+		  ifTrue:
+			[readposition ← position ← 0.
+			n ← false]
+		  ifFalse: [n ← array ◦ (readposition ← readposition + 1)])].
+	^n
+! !
+!PQueue methodsFor: 'LIFO access' stamp: ''!
+push: x | |
+	 "treat as LIFO queue"
+	Top critical⦂ [
+		(readposition > 0
+		  ifTrue:
+			[array ◦ readposition ← x.
+			readposition ← readposition - 1]
+		  ifFalse: [ "readpositon > 0, just jam it in"
+			self insert: x])] "otherwise insert on front"
+! !
+!PQueue methodsFor: 'Stream protocol' stamp: ''!
+of: t1 | |
+	array ← t1.
+	Top critical⦂ [
+		(position ← 0.
+		readposition ← 0.
+		limit ← array length)]
+! !
+!PQueue methodsFor: 'Stream protocol' stamp: ''!
+end | n |
+	Top critical⦂ [(n ← readposition ≥ position)].
+	^n
+! !
+!PQueue methodsFor: 'Stream protocol' stamp: ''!
+empty | l |<primitive: 75>
+	Top critical⦂ [(l ← readposition ≥ position)].
+	^l
+! !
+!PQueue methodsFor: 'Stream protocol' stamp: ''!
+reset | |
+	Top critical⦂ [(readposition ← position ← 0)]
+! !
+!PQueue methodsFor: 'Stream protocol' stamp: ''!
+of: t1 from: t2 to: t3 | |
+	array ← t1.
+	position ← t2.
+	limit ← t3.
+	user notify: 'of:from:to: is not appropriate for PQueues'
+! !
+!PQueue methodsFor: 'Stream protocol' stamp: ''!
+contents | n |
+	Top critical⦂ [(n ← (array ◦ (readposition + 1 to: position)) copy)].
+	^n
+! !
+Stream subclass: #Queue
+	instanceVariableNames: 'readposition'
+	classVariableNames: ''
+	category: 'Basic Data Structures'!
+!Queue methodsFor: 'FIFO access' stamp: ''!
+dequeue: num | n |
+	position - readposition < num
+	  ifTrue: [^false].
+	n ← (array ◦ (readposition + 1 to: readposition + num)) copy.
+	readposition ← readposition + num.
+	^n
+! !
+!Queue methodsFor: 'FIFO access' stamp: ''!
+length | |
+	^position - readposition
+! !
+!Queue methodsFor: 'FIFO access' stamp: ''!
+dequeue | |
+	readposition ≥ position
+	  ifTrue:
+		[readposition ← position ← 0.
+		^false].
+	^array ◦ (readposition ← readposition + 1)
+! !
+!Queue methodsFor: 'FIFO access' stamp: ''!
+enQ1: n | |
+	 "A noninterruptable enqueue"
+	Top critical⦂ [(super next← n)].
+	^n
+! !
+!Queue methodsFor: 'FIFO access' stamp: ''!
+skip: x | |
+	readposition ← readposition + x
+! !
+!Queue methodsFor: 'FIFO access' stamp: ''!
+deQ1 | n |
+	 "A noninterruptable dequeue"
+	Top critical⦂ [(n ← self dequeue)].
+	^n
+! !
+!Queue methodsFor: 'FIFO access' stamp: ''!
+peek | |
+	readposition ≥ position
+	  ifTrue:
+		[readposition ← position ← 0.
+		^false].
+	^array ◦ (readposition + 1)
+! !
+!Queue methodsFor: 'FIFO access' stamp: ''!
+next | |
+	readposition ≥ position
+	  ifTrue:
+		[readposition ← position ← 0.
+		^false].
+	^array ◦ (readposition ← readposition + 1)
+! !
+!Queue methodsFor: 'LIFO access' stamp: ''!
+push: x | |
+	 "treat as LIFO queue"
+	readposition > 0
+	  ifTrue:
+		[array ◦ readposition ← x.
+		readposition ← readposition - 1]
+	  ifFalse: [ "readpositon > 0, just jam it in"
+		self insert: x] "otherwise insert on front"
+! !
+!Queue methodsFor: 'Stream protocol' stamp: ''!
+pastend← x | n |
+	readposition = 0
+	  ifTrue: [^super pastend← x].
+	n ← position - readposition.
+	array ◦ (1 to: n) ← array ◦ (readposition + 1 to: position).
+	readposition ← 0.
+	position ← n.
+	^self next← x
+! !
+!Queue methodsFor: 'Stream protocol' stamp: ''!
+of: t1 | |
+	array ← t1.
+	position ← 0.
+	readposition ← 0.
+	limit ← array length
+! !
+!Queue methodsFor: 'Stream protocol' stamp: ''!
+end | |
+	^readposition ≥ position
+! !
+!Queue methodsFor: 'Stream protocol' stamp: ''!
+empty | |
+	^readposition ≥ position
+! !
+!Queue methodsFor: 'Stream protocol' stamp: ''!
+reset | |
+	readposition ← position ← 0
+! !
+!Queue methodsFor: 'Stream protocol' stamp: ''!
+of: t1 from: t2 to: t3 | |
+	array ← t1.
+	position ← t2.
+	limit ← t3.
+	user notify: 'of:from:to: is not appropriate for Queues'
+! !
+!Queue methodsFor: 'Stream protocol' stamp: ''!
+contents | |
+	^(array ◦ (readposition + 1 to: position)) copy
+! !
+Array subclass: #RunVector
+	instanceVariableNames: ' min max starts values offset'
+	classVariableNames: ''
+	category: 'Basic Data Structures'!
+!RunVector methodsFor: 'Reading and writing' stamp: ''!
+length | |
+	max ≡ nil
+	  ifTrue: [^0].
+	^max - min + 1
+! !
+!RunVector methodsFor: 'Reading and writing' stamp: ''!
+min | |
+	^min
+! !
+!RunVector methodsFor: 'Reading and writing' stamp: ''!
+◦ i | index |
+	index ← starts findSorted: i.
+	offset ← i - (starts ◦ index) "distance into run".
+	^values ◦ index
+! !
+!RunVector methodsFor: 'Reading and writing' stamp: ''!
+max | |
+	^max
+! !
+!RunVector methodsFor: 'Reading and writing' stamp: ''!
+◦ i ← val | |
+	offset ← 0.
+	min ≡ nil
+	  ifTrue:
+		[min ← max ← i.
+		starts ← i inVector.
+		values ← val inVector]
+	  ifFalse:
+		[i - 1 ≠ max
+		  ifTrue:
+			[user notify: 'RunVectors must be loaded sequentially'.
+			^val].
+		max ← i.
+		val = values last
+		  ifTrue:
+			[offset ← i - starts last.
+			^val].
+		starts ← {starts , i}.
+		values ← {values , val}.
+		^val]
 ! !
 Stream subclass: #Set
 	instanceVariableNames: 'views'
@@ -277,6 +896,31 @@ viewer: v | |
 	views ≡ nil
 	  ifTrue: [views ← Set default].
 	views next← v
+! !
+Stream subclass: #SetReader
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Basic Data Structures'!
+!SetReader methodsFor: 'Initialization' stamp: ''!
+of: t1 from: t2 for: n | |
+	array ← t1.
+	position ← t2.
+	position ← position - 1.
+	limit ← position + n
+! !
+!SetReader methodsFor: 'Reading' stamp: ''!
+copy | t1 |
+	 "yield contents all at once as a Set"
+	^(t1 ← Set new) of: (array species new: limit - position).
+	t1 append: self
+! !
+!SetReader methodsFor: 'Reading' stamp: ''!
+length | |
+	^limit - position "how much left"
+! !
+!SetReader methodsFor: 'Reading' stamp: ''!
+asSet | |
+	^self copy
 ! !
 Object subclass: #Stream
 	instanceVariableNames: 'array position limit'
@@ -727,7 +1371,7 @@ wordposition← w | |
 ! !
 Array subclass: #String
 	instanceVariableNames: ''
-	classVariableNames: ''
+	classVariableNames: 'StringBlter'
 	category: 'Basic Data Structures'!
 !String methodsFor: 'As yet unclassified' stamp: ''!
 stringhash | |
@@ -1143,6 +1787,48 @@ word: x ← y | |
 word: x | |
 	 "read word in String"
 	^self ◦ (x + x) + (self ◦ (x + x - 1) lshift: 8)
+! !
+Array subclass: #Substring
+	instanceVariableNames: 'data map'
+	classVariableNames: ''
+	category: 'Basic Data Structures'!
+!Substring methodsFor: 'Compatability' stamp: ''!
+species | |
+	^data species
+! !
+!Substring methodsFor: 'Conversion' stamp: ''!
+asStream | |
+	map isIntervalBy1
+	  ifTrue: [ "direct stream for simple substrings"
+		^Stream new of: data from: map start to: map stop].
+	^Stream new of: self from: 1 to: map length
+! !
+!Substring methodsFor: 'Copying and Altering' stamp: ''!
+swap: i with: j | t |
+	t ← map ◦ i "By permuting my map (a writable Array), swap elements i and j.".
+	map ◦ i ← map ◦ j.
+	map ◦ j ← t
+! !
+!Substring methodsFor: 'Initialization' stamp: ''!
+data: t1 map: t2 | |
+	data ← t1.
+	map ← t2
+! !
+!Substring methodsFor: 'Reading and Writing' stamp: ''!
+map | |
+	^map "Return my map."
+! !
+!Substring methodsFor: 'Reading and Writing' stamp: ''!
+length | |
+	^map length
+! !
+!Substring methodsFor: 'Reading and Writing' stamp: ''!
+◦ x | |
+	^data ◦ (map ◦ x)
+! !
+!Substring methodsFor: 'Reading and Writing' stamp: ''!
+◦ x ← val | |
+	^data ◦ (map ◦ x) ← val
 ! !
 String subclass: #UniqueString
 	instanceVariableNames: ''

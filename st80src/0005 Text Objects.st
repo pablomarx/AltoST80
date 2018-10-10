@@ -218,6 +218,26 @@ eachtime | t |
 		[user anybug
 		  ifTrue: [^false]]
 ! !
+TokenCollector subclass: #FieldNameCollector
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Text Objects'!
+!FieldNameCollector methodsFor: 'Invalid fields' stamp: ''!
+next← value | |
+	user notify: 'Invalid field name: ' + value asString
+! !
+!FieldNameCollector methodsFor: 'Invalid fields' stamp: ''!
+rightparen | |
+	self next← ')' "just for error message"
+! !
+!FieldNameCollector methodsFor: 'Invalid fields' stamp: ''!
+leftparen | |
+	self next← '(' "just for error message"
+! !
+!FieldNameCollector methodsFor: 'Valid fields' stamp: ''!
+identifier: s | |
+	sink next← s
+! !
 Object subclass: #Font
 	instanceVariableNames: 'name minascii maxascii maxwidth length ascent descent xoffset raster glyphs xtable'
 	classVariableNames: ''
@@ -832,6 +852,237 @@ justify | |
 flushright | |
 	alignment ← 4
 ! !
+Object subclass: #Reader
+	instanceVariableNames: 'source collector token nextchar typetbl '
+	classVariableNames: 'typetable'
+	category: 'Text Objects'!
+!Reader methodsFor: 'Initialization' stamp: ''!
+of: s | |
+	typetbl ← typetable.
+	token ← Stream default.
+	source ← s asStream.
+	self step
+! !
+!Reader methodsFor: 'Initialization' stamp: ''!
+classInit | strm type first last i |
+	 "Initialize the type and mask tables"
+	typetable ← String new: 256.
+	strm ← Stream new of: #(5 0 255 1 65 90 1 97 122 2 48 57 3 58 58 3 3 3 4 9 10 4 12 13 4 32 32 6 34 34 6 25 25 7 39 39 8 21 21 9 26 26 10 30 30 11 40 41 ) "(initialize)" "upper and lower case letters" "digits" "colon, open colon" "TAB, LF, FF, CR, blank" "5 is one-char tokens" "comment quote and ➲" "string quote" "high-minus" "^Z (format trailer)" "DOIT" "open and close paren".
+	[type ← strm next] whileTrueDo:
+		[first ← strm next.
+		last ← strm next.
+		(first + 1 to: last + 1) do: [:i | typetable ◦ i ← type]]
+! !
+!Reader methodsFor: 'Internal readers' stamp: ''!
+upto: char | start |
+	 "Knows about doubled ' in strings"
+	start ← source position.
+	token reset.
+	[nextchar ← source next] whileTrueDo:
+		[nextchar = char
+		  ifTrue:
+			[self step.
+			char ≠ 39
+			  ifTrue: [^false].
+			nextchar ≠ 39
+			  ifTrue: [^false]].
+		token next← nextchar "Ran off end, back up."].
+	source skip: start - 1 - source position.
+	^true
+! !
+!Reader methodsFor: 'Internal readers' stamp: ''!
+rdint: char | |
+	 "Read an integer, allow char as first char"
+	token reset.
+	nextchar = char
+	  ifTrue:
+		[token next← char.
+		self step].
+	[nextchar] whileTrueDo:
+		[nextchar < 48
+		  ifTrue: [^token contents].
+		nextchar > 57
+		  ifTrue:
+			[ "allow ABCDEFGH for hex"
+			nextchar > 72
+			  ifTrue: [^token contents].
+			nextchar < 65
+			  ifTrue: [^token contents].
+			token next← nextchar.
+			nextchar ← source next]
+		  ifFalse:
+			[.
+			token next← nextchar.
+			nextchar ← source next]].
+	^token contents
+! !
+!Reader methodsFor: 'Internal readers' stamp: ''!
+step | |
+	nextchar ← source next
+! !
+!Reader methodsFor: 'Main reader' stamp: ''!
+readInto: t1 | x |
+	collector ← t1.
+	[nextchar] whileTrueDo:
+		[x ← typetbl ◦ (nextchar + 1) "See classInit for the meanings of the type codes".
+		x = 4
+		  ifTrue:
+			[collector separator: nextchar.
+			nextchar ← source next]
+		  ifFalse:
+			[x = 1
+			  ifTrue: [self readatom: 0]
+			  ifFalse:
+				[x = 5
+				  ifTrue:
+					[self binary]
+				  ifFalse:
+					[x = 6
+					  ifTrue:
+						[(self upto: nextchar)
+						  ifTrue: [collector notify: 'Unmatched comment quote']
+						  ifFalse: [collector comment: token contents]]
+					  ifFalse:
+						[x = 2
+						  ifTrue: [self readnum]
+						  ifFalse:
+							[x = 11
+							  ifTrue:
+								[nextchar = 40
+								  ifTrue: [collector leftparen]
+								  ifFalse: [collector rightparen].
+								nextchar ← source next]
+							  ifFalse:
+								[x = 7
+								  ifTrue:
+									[(self upto: nextchar)
+									  ifTrue: [collector notify: 'Unmatched string quote']
+									  ifFalse: [collector string: token contents]]
+								  ifFalse:
+									[x = 8
+									  ifTrue: [self readnum]
+									  ifFalse:
+										[x = 9
+										  ifTrue:
+											[(self upto: 13)
+											  ifTrue: [collector notify: '^Z without CR']
+											  ifFalse: [collector trailer: token contents]]
+										  ifFalse:
+											[x = 10
+											  ifTrue: [^collector contents].
+											x = 3
+											  ifTrue: [self readatom: 1]]]]]]]]]]].
+	^collector contents
+! !
+!Reader methodsFor: 'Main reader' stamp: ''!
+binary | char1 s |
+	char1 ← nextchar.
+	nextchar ← source next.
+	(nextchar and: [typetbl ◦ (nextchar + 1) = 5])
+	  ifTrue: "binary"
+		[s ← '??'.
+		s◦1 ← char1.
+		s◦2 ← nextchar.
+		nextchar ← source next.
+		collector otheratom: s]
+	  ifFalse: 
+		[collector onechar: char1]
+! !
+!Reader methodsFor: 'Main reader' stamp: ''!
+readatom: ncolons | type s t4 |
+	token reset.
+	[token next← nextchar.
+	(nextchar ← source next)
+	  ifTrue: [(type ← typetbl ◦ (nextchar + 1)) ≤ 3]
+	  ifFalse: [false]] whileTrueDo:
+		[type = 3
+		  ifTrue: [ncolons ← ncolons + 1]].
+	s ← token contents.
+	ncolons = 0
+	  ifTrue: [collector identifier: s]
+	  ifFalse:
+		[ncolons > 1
+		  ifTrue: [collector otheratom: s]
+		  ifFalse:
+			[.
+			s length = 1
+			  ifTrue: [collector otheratom: s]
+			  ifFalse:
+				[ ": or ⦂ alone"
+				(t4 ← s ◦ s length) = 58
+				  ifTrue: [collector keyword: s]
+				  ifFalse:
+					[t4 = 3
+					  ifTrue: [collector keyword: s]
+					  ifFalse:
+						[.
+						collector otheratom: s "Colon wasn't last character"]]]]]
+! !
+!Reader methodsFor: 'Main reader' stamp: ''!
+readnum | val d e |
+	val ← self rdint: 21.
+	nextchar = 46
+	  ifTrue:
+		[ "check for decimal point"
+		self step.
+		(nextchar ≡ false or: [nextchar isdigit ≡ false])
+		  ifTrue:
+			[collector integer: val.
+			collector onechar: 46]
+		  ifFalse:
+			[ "was <Integer> .  "
+			d ← self rdint: ¬1 "fraction part".
+			nextchar = 101
+			  ifTrue:
+				[ "check for e<exponent> "
+				self step.
+				e ← self rdint: 21]
+			  ifFalse: [e ← ''].
+			collector float: val fraction: d exp: e]]
+	  ifFalse: [collector integer: val]
+! !
+!Reader methodsFor: 'Main reader' stamp: ''!
+read | |
+	^self readInto: TokenCollector default
+! !
+Object subclass: #RemoteParagraph
+	instanceVariableNames: 'file hipos lowpos'
+	classVariableNames: ''
+	category: 'Text Objects'!
+!RemoteParagraph methodsFor: 'As yet unclassified' stamp: ''!
+asParagraph | |
+	file≡nil ifTrue: [^'an inaccessible RemoteParagraph' asParagraph].
+	file position← self position.
+	^Paragraph new readFrom: file
+! !
+!RemoteParagraph methodsFor: 'As yet unclassified' stamp: ''!
+on: t1 | |
+	 "Refer me to a specific file"
+	file ← t1
+! !
+!RemoteParagraph methodsFor: 'As yet unclassified' stamp: ''!
+asString | |
+	^self asParagraph text
+! !
+!RemoteParagraph methodsFor: 'As yet unclassified' stamp: ''!
+fromString: s | |
+	self fromParagraph: s asParagraph
+! !
+!RemoteParagraph methodsFor: 'As yet unclassified' stamp: ''!
+position← p | |
+	p ← p intdiv: 2000.
+	hipos ← (p ◦ 1) asInteger - 1000.
+	lowpos ← (p ◦ 2) asInteger - 1000
+! !
+!RemoteParagraph methodsFor: 'As yet unclassified' stamp: ''!
+position | |
+	^hipos + 1000 * 2000 + (lowpos + 1000)
+! !
+!RemoteParagraph methodsFor: 'As yet unclassified' stamp: ''!
+fromParagraph: p | |
+	self position← file position "write me (only once!) on file".
+	p storeOn: file
+! !
 Object subclass: #StyleSheet
 	instanceVariableNames: 'fontset linelead lineheight baseline tabsize spacesize effect'
 	classVariableNames: ''
@@ -893,7 +1144,7 @@ fontset: t1 lineheight: t2 linelead: t3 baseline: t4 tabsize: t5 spacesize: t6 e
 ! !
 Object subclass: #Textframe
 	instanceVariableNames: 'frame window para style lines lastline'
-	classVariableNames: 'cr'
+	classVariableNames: ''
 	category: 'Text Objects'!
 !Textframe methodsFor: 'Access to Parts' stamp: ''!
 lineheight | |
@@ -1384,7 +1635,7 @@ spy every: 10; on⦂ [TD select: user waitbug]; report: 'select.spy'; close.
 ! !
 Textframe subclass: #TextImage
 	instanceVariableNames: 'c1 c2 begintypein superimage oldEntity sel'
-	classVariableNames: 'Deletion on esc off Scrap scrap cut paste bs'
+	classVariableNames: 'Deletion on esc off Scrap bs scrap paragraphmenu cut'
 	category: 'Text Objects'!
 !TextImage methodsFor: 'ACCESS TO PARTS' stamp: ''!
 Scrap← s | |
@@ -1954,4 +2205,355 @@ copy | t |
 	t c2← c2.
 	t begintypein← begintypein.
 	^t
+! !
+BitBlt subclass: #TextScanner
+	instanceVariableNames: 'printing chari stopx xtable exceptions spacecount spacei spacex charpad text spacesize style para font fontno minascii maxascii glyphs frame looktype'
+	classVariableNames: 'cr defaultExceptions'
+	category: 'Text Objects'!
+!TextScanner methodsFor: 'Access to parts' stamp: ''!
+chari | |
+	^chari "index of last char scanned"
+! !
+!TextScanner methodsFor: 'Access to parts' stamp: ''!
+spacex | |
+	^spacex
+! !
+!TextScanner methodsFor: 'Access to parts' stamp: ''!
+spacei | |
+	^spacei
+! !
+!TextScanner methodsFor: 'Access to parts' stamp: ''!
+rightx | |
+	^destX
+! !
+!TextScanner methodsFor: 'Access to parts' stamp: ''!
+spacecount | |
+	^0 - spacecount "because counted down from zero"
+! !
+!TextScanner methodsFor: 'Access to parts' stamp: ''!
+leftx | |
+	^destX - width
+! !
+!TextScanner methodsFor: 'Initialization' stamp: ''!
+frame: t1 window: w para: t3 style: t4 printing: t5 | |
+	frame ← t1.
+	para ← t3.
+	style ← t4.
+	printing ← t5.
+	super init.
+	self screen: white.
+	self toDisplay.
+	exceptions ← defaultExceptions.
+	fontno ← ¬1 "indicates font not set".
+	text ← (para ← para asParagraph) text.
+	NoteTaker
+	  ifTrue: [self window: w]
+! !
+!TextScanner methodsFor: 'Initialization' stamp: ''!
+exceptionTable: t1 | |
+	exceptions ← t1
+! !
+!TextScanner methodsFor: 'Initialization' stamp: ''!
+setfont: newfont liney: liney | |
+	newfont = fontno
+	  ifTrue: [ "Just bump y if same font"
+		destY ← liney + style baseline - font ascent]
+	  ifFalse:
+		[font ← style font: (fontno ← newfont).
+		xtable ← font xtable.
+		spacesize ← font spacewidth.
+		minascii ← font minascii.
+		maxascii ← font maxascii.
+		glyphs ← font glyphs.
+		printing
+		  ifTrue:
+			[sourceRaster ← font raster.
+			destY ← liney + style baseline - font ascent.
+			height ← font height.
+			NoteTaker
+			  ifTrue: [source ← glyphs]]]
+! !
+!TextScanner methodsFor: 'Initialization' stamp: ''!
+classInit | |
+	 "TextScanner classInit."
+	space ← 32.
+	tab ← 9.
+	cr ← 13.
+	(defaultExceptions ← Vector new: 256) all← 0.
+	defaultExceptions ◦ (space + 1) ← 12.
+	defaultExceptions ◦ (tab + 1) ← 13.
+	defaultExceptions ◦ (cr + 1) ← 4
+! !
+!TextScanner methodsFor: 'Scanning' stamp: ''!
+type: ascii | |
+	 "For incremental typing in a line"
+	exceptions ◦ (ascii + 1) ≠ 0
+	  ifTrue: [^exceptions ◦ (ascii + 1)].
+	(ascii < minascii or: [ascii > maxascii])
+	  ifTrue: [ascii ← maxascii + 1].
+	stopx ← frame maxX.
+	sourceX ← xtable ◦ (ascii + 1).
+	(ascii ≠ space and: [ascii ≠ tab])
+	  ifTrue: [width ← xtable ◦ (ascii + 2) - sourceX]
+	  ifFalse:
+		[ascii = space
+		  ifTrue: [width ← spacesize]
+		  ifFalse: [width ← style tabsize]].
+	(destX + width > stopx or: [ascii = cr])
+	  ifTrue: [^1].
+	(destX ⌾ destY rect: stopx - width ⌾ (destY + height)) blt: destX + width ⌾ destY mode: storing "slide the rest of the line over".
+	(ascii ≠ space and: [ascii ≠ tab])
+	  ifTrue: [super effect: 16]
+	  ifFalse: [super effect: 28].
+	self callBLT.
+	destX ← destX + width.
+	^0
+! !
+!TextScanner methodsFor: 'Scanning' stamp: ''!
+scanline: line at: y stopx: t3 stopchar: stopchar | ascii runx reason emphasis newrun endrun padwidth relx tabsize spacepad t15 |
+	stopx ← t3.
+	chari ← line starti - 1.
+	spacecount ← line spaces.
+	padwidth ← line padwidth.
+	destX ← spacex ← runx ← frame minX.
+	emphasis ← charpad ← spacepad ← 0.
+	tabsize ← style tabsize.
+	spacei ← ¬1.
+	(t15 ← para alignment) = 0
+	  ifFalse:
+		[ "LeftFlush"
+		t15 = 1
+		  ifTrue:
+			[spacecount > 0
+			  ifTrue:
+				[ "Justified"
+				charpad ← padwidth / (line stopi - chari + spacecount).
+				charpad > 0
+				  ifTrue:
+					[padwidth ← padwidth - (charpad * (line stopi - chari - 2 - spacecount)).
+					printing
+					  ifTrue: [(frame minX ⌾ y rect: frame maxX ⌾ (y + style lineheight)) clear: white]].
+				spacepad ← padwidth / spacecount.
+				spacecount ← spacecount - (padwidth \ spacecount)]]
+		  ifFalse:
+			[t15 = 2
+			  ifTrue: [destX ← destX + (padwidth / 2)]
+			  ifFalse:
+				[ "Centered"
+				t15 = 4
+				  ifTrue: [destX ← destX + padwidth]]]] "RightFlush".
+	reason ← 10.
+	[reason < 10] whileFalseDo: 
+		[ "2=>stopx, 3=>stopchar, 4=>CR, 
+			10=>end of run, 11=>ascii out of range, 12-254=>exception chars"
+		reason = 10
+		  ifTrue:
+			[reason ← 255.
+			chari ≥ stopchar
+			  ifTrue: [reason ← 3]
+			  ifFalse:
+				[ "new run"
+				printing
+				  ifTrue: [self emphasize: emphasis leftx: runx rightx: destX liney: y].
+				runx ← destX.
+				chari ← chari + 1.
+				newrun ← para runAndVal: chari.
+				emphasis ← newrun ◦ 2 land: 15.
+				endrun ← newrun ◦ 1 + chari - 1 min: stopchar.
+				self setfont: (newrun ◦ 2 lshift: ¬4) liney: y]]
+		  ifFalse:
+			[reason ← self scanword: endrun.
+			reason > 10
+			  ifTrue:
+				[reason = 12
+				  ifTrue:
+					[spacecount ← spacecount - 1 "space".
+					spacecount = 0
+					  ifTrue: [spacepad ← spacepad + 1].
+					spacei ← chari.
+					spacex ← destX.
+					width ← spacesize + spacepad.
+					printing
+					  ifTrue:
+						[super effect: 28.
+						self callBLT]]
+				  ifFalse:
+					[reason = 13
+					  ifTrue:
+						[relx ← destX - frame minX "tab".
+						width ← (para alignment > 0
+								  ifTrue: [tabsize + charpad]
+								  ifFalse: [relx + tabsize | tabsize - relx]).
+						printing
+						  ifTrue:
+							[super effect: 28.
+							self callBLT]]
+					  ifFalse:
+						[reason = 11
+						  ifTrue: [ascii ← maxascii + 1].
+						sourceX ← xtable ◦ (ascii + 1).
+						width ← xtable ◦ (ascii + 2) - sourceX.
+						printing
+						  ifTrue:
+							[super effect: 16.
+							self callBLT].
+						width ← width + charpad]].
+				(destX ← destX + width) > stopx
+				  ifTrue: [reason ← 2]
+				  ifFalse:
+					[chari ≥ endrun
+					  ifTrue: [reason ← 10]
+					  ifFalse: [chari ← chari + 1]]]
+			  ifFalse:
+				[reason = 4
+				  ifTrue: [width ← 0] "CR"]]].
+	printing
+	  ifTrue: [self emphasize: emphasis leftx: runx rightx: destX liney: y]
+! !
+!TextScanner methodsFor: 'Scanning' stamp: ''!
+scanword: endrun | ascii |<primitive: 76>
+	 "Scan or print text until terminated by x-value, special character or new format run.
+	Returns an Integer as follows:
+		2=>stopx, 10=>end of run, 11=>ascii out of range,
+		else exceptions◦chari (4=CR, 12=space, 13=tab)"
+	super effect: 16 "exceptions and xtable are Vectors of Integers, printing is Boolean, rest are Integers" "becomes: super effect: 3 in new encoding".
+	[chari > endrun] whileFalseDo: 
+		[ascii ← text ◦ chari.
+		exceptions ◦ (ascii + 1) ≠ 0
+		  ifTrue: [^exceptions ◦ (ascii + 1)].
+		(ascii < minascii or: [ascii > maxascii])
+		  ifTrue: [^11].
+		sourceX ← xtable ◦ (ascii + 1).
+		width ← xtable ◦ (ascii + 2) - sourceX.
+		printing
+		  ifTrue: [self callBLT].
+		width ← width + charpad.
+		destX ← destX + width.
+		destX > stopx
+		  ifTrue: [^2].
+		chari ← chari + 1].
+	chari ← chari - 1.
+	^10
+! !
+!TextScanner methodsFor: 'Scanning' stamp: ''!
+emphasize: emphasis leftx: leftx rightx: rightx liney: liney | y y2 |
+	 "Should eventually use self callBLT, to get windowing and go faster"
+	(font ≡ nil or: [font height = style lineheight])
+	  ifFalse:
+		[font ascent < style baseline
+		  ifTrue:
+			[y ← liney + (style baseline - font ascent).
+			(leftx ⌾ liney rect: rightx ⌾ y) clear: white].
+		font descent < (style lineheight - style baseline)
+		  ifTrue:
+			[y ← liney + (style baseline + font descent).
+			y2 ← y + (style lineheight - (style baseline + font descent)).
+			(leftx ⌾ y rect: rightx ⌾ y2) clear: white]].
+	emphasis = 0
+	  ifFalse:
+		[emphasis ≥ 8
+		  ifTrue:
+			[emphasis ← emphasis - 8 "Strike-out".
+			y ← liney + (style baseline / 2).
+			(leftx ⌾ y rect: rightx ⌾ (y + 1)) clear: black].
+		emphasis ≥ 4
+		  ifTrue:
+			[emphasis ← emphasis - 4 "Underline".
+			y ← liney + style baseline.
+			(leftx ⌾ y rect: rightx ⌾ (y + 1)) clear: black].
+		emphasis ≥ 2
+		  ifTrue:
+			[emphasis ← emphasis - 2 "Itallic".
+			y ← liney + style lineheight - 4.
+			[y ≤ liney] whileFalseDo: 
+				[(leftx ⌾ liney rect: rightx - 1 ⌾ y) blt: leftx + 1 ⌾ liney mode: storing.
+				(leftx ⌾ liney rect: leftx + 1 ⌾ y) clear: white.
+				y ← y - 4]].
+		emphasis ≥ 1
+		  ifTrue:
+			[emphasis ← emphasis - 1 "Bold".
+			(leftx ⌾ liney rect: rightx ⌾ (liney + style lineheight)) blt: leftx + 1 ⌾ liney mode: oring]]
+! !
+Object subclass: #TokenCollector
+	instanceVariableNames: 'sink parenstack'
+	classVariableNames: ''
+	category: 'Text Objects'!
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+separator: c | |
+	
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+identifier: s | |
+	self next← s unique
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+float: i fraction: f exp: e | |
+	self next← (i + '.' + f + 'e' + e) asFloat
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+string: s | |
+	self next← s
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+otheratom: s | |
+	self next← s unique
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+rightparen | |
+	parenstack empty
+	  ifFalse:
+		[ "Error will be caught elsewhere"
+		parenstack last next← sink contents.
+		sink ← parenstack pop]
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+leftparen | |
+	parenstack next← sink.
+	sink ← (Vector new: 10) asStream
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+integer: s | |
+	self next← s asInteger
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+keyword: s | |
+	self next← s unique
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+onechar: c | x |
+	x ← String new: 1.
+	x ◦ 1 ← c.
+	self next← x unique
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+trailer: s | |
+	
+! !
+!TokenCollector methodsFor: 'Constructors' stamp: ''!
+comment: s | |
+	
+! !
+!TokenCollector methodsFor: 'Finalization' stamp: ''!
+next← obj | |
+	sink next← obj "subclasses can override easily"
+! !
+!TokenCollector methodsFor: 'Finalization' stamp: ''!
+contents | |
+	 "Close all parentheses first"
+	[parenstack empty] whileFalseDo:  [self rightparen].
+	^sink contents
+! !
+!TokenCollector methodsFor: 'Finalization' stamp: ''!
+notify: errorString | |
+	user notify: errorString
+! !
+!TokenCollector methodsFor: 'Initialization' stamp: ''!
+to: v | |
+	 "Initialize"
+	sink ← v asStream.
+	parenstack ← (Vector new: 5) asStream
+! !
+!TokenCollector methodsFor: 'Initialization' stamp: ''!
+default | |
+	self to: (Vector new: 20)
 ! !

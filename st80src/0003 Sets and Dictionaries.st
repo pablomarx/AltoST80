@@ -27,7 +27,7 @@ key: t1 value: t2 | |
 ! !
 Object subclass: #ClassOrganizer
 	instanceVariableNames: 'globalComment commentVector groupVector'
-	classVariableNames: ''
+	classVariableNames: 'default'
 	category: 'Sets and Dictionaries'!
 !ClassOrganizer methodsFor: 'Access to parts' stamp: ''!
 globalComment← t1 | |
@@ -156,6 +156,269 @@ init: sortedVec | |
 classInit | |
 	default ← 'As yet unclassified'
 ! !
+Object subclass: #Dict
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Sets and Dictionaries'!
+!Dict methodsFor: 'Entry Access' stamp: ''!
+list | |
+	self list: '*'
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+exists: entry | |
+	^self Find: (self makeEntry: entry) "doesn't initialize too much"
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+read: entry | |
+	^self find: entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+create: entry | |
+	^self insert: entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+contents | |
+	^self match: '*'
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+write: entry | |
+	 "replace or insert"
+	(self Find: (entry ← self makeEntry: entry))
+	  ifTrue: [self Replace: entry]
+	  ifFalse: [self Insert: entry].
+	^entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+match: entries | set |
+	set ← Set new vector: 50.
+	self match: entries to: set.
+	^set contents
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+replace: entry | |
+	(self Find: (entry ← self makeEntry: entry))
+	  ifTrue:
+		[self Replace: entry.
+		^entry].
+	^self error: 'not replaced (not found)' entry: entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+delete: entry | |
+	(self Find: (entry ← self makeEntry: entry))
+	  ifTrue:
+		[self Delete: entry.
+		^entry].
+	^self error: 'not deleted (not found)' entry: entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+find: entry | |
+	(self Find: (entry ← self makeEntry: entry))
+	  ifTrue: [^self found: entry].
+	^self error: 'not found' entry: entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+insert: entry | |
+	(self Find: (entry ← self makeEntry: entry))
+	  ifTrue: [^self error: 'not inserted (already found)' entry: entry].
+	self Insert: entry.
+	^entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+get: entry | |
+	(self Find: (entry ← self makeEntry: entry "find or insert"))
+	  ifTrue: [^self found: entry].
+	self Insert: entry.
+	^entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+match: entries to: strm | entry nentries |
+	 "return a Set of entries which match those in entries
+	(can include exact values and patterns and ranges)"
+	((entries is: Vector) or: [(entries Is: Set)])
+	  ifFalse: [entries ← entries inVector].
+	nentries ← Set new vector: entries length.
+	entries do: [:entry | nentries next← self makeEntry: entry].
+	^self Match: nentries to: strm
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+store: entry | |
+	^self write: entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+found: entry | |
+	^self nextEntry: entry "found, fill it in from dictionary"
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+rename: entry newName: name | nentry |
+	(self Find: (nentry ← self makeEntry: name "not tested"))
+	  ifTrue: [^self error: 'already exists' error: nentry].
+	(self Find: (entry ← self makeEntry: entry))
+	  ifTrue:
+		[self Rename: entry from: nentry.
+		^entry].
+	^self error: 'not found' entry: entry
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+retrieve: entry | |
+	^self find: entry "match:?"
+! !
+!Dict methodsFor: 'Entry Access' stamp: ''!
+list: entries | |
+	self match: entries to: user
+! !
+!Dict methodsFor: 'Entry Creation' stamp: ''!
+newEntry | t1 |
+	^(t1 ← self entryClass new) dictionary: self.
+	t1 init
+! !
+!Dict methodsFor: 'Entry Creation' stamp: ''!
+entryClass | |
+	self subError "a subclass of DictionaryEntry"
+! !
+!Dict methodsFor: 'Entry Creation' stamp: ''!
+nextEntry: entry | |
+	^entry "return next name and value in entry, or false.
+	if insert or delete occurs after previous next, may be problem"
+! !
+!Dict methodsFor: 'Entry Creation' stamp: ''!
+makeEntry: entry | cl |
+	 "entry or name"
+	cl ← self entryClass.
+	(cl ≡ false or: [(entry Is: cl)])
+	  ifTrue: [^entry].
+	 "entry should not be converted or is the correct type" "convert entry from a name to an entry with that name"
+	^self newEntry name: entry
+! !
+!Dict methodsFor: 'Entry Operations' stamp: ''!
+Replace: entry | |
+	self subError "entry found (next), replace it's value"
+! !
+!Dict methodsFor: 'Entry Operations' stamp: ''!
+Insert: entry | |
+	self subError "entry not found, insert it (next)"
+! !
+!Dict methodsFor: 'Entry Operations' stamp: ''!
+Delete: entry | |
+	self subError "entry found (next), delete it"
+! !
+!Dict methodsFor: 'Entry Operations' stamp: ''!
+error: e entry: entry | |
+	^false "entry error: e"
+! !
+!Dict methodsFor: 'Entry Operations' stamp: ''!
+Find: entry | |
+	^self Position← entry "is entry in dictionary?"
+! !
+!Dict methodsFor: 'Entry Operations' stamp: ''!
+entrySize: entry | |
+	self subError "storage size of entry, constant or variable"
+! !
+!Dict methodsFor: 'Entry Operations' stamp: ''!
+Match: entries to: strm | entry pat ents |
+	self reset "default (unordered) is to compare entire dictionary with entries".
+	self do:
+		[:entry | ents ← entries asStream.
+		[ents and: [(pat ← ents next)]] whileTrueDo:
+			[(pat match: entry)
+			  ifTrue:
+				[ents ← false.
+				strm next← entry]]]
+! !
+!Dict methodsFor: 'Entry Operations' stamp: ''!
+Rename: entry from: nentry | |
+	self Delete: entry.
+	self Insert: (entry name: nentry name)
+! !
+!Dict methodsFor: 'File-Based dictionary' stamp: ''!
+reopen | |
+	self open "reinitialize, especially if a File is involved"
+! !
+!Dict methodsFor: 'File-Based dictionary' stamp: ''!
+close | |
+	self obsolete
+	  ifFalse:
+		[ "possible cleanup before a release"
+		self file
+		  ifTrue: [self file close].
+		self release]
+! !
+!Dict methodsFor: 'File-Based dictionary' stamp: ''!
+open | |
+	
+! !
+!Dict methodsFor: 'File-Based dictionary' stamp: ''!
+release | |
+	 "obsolete and deallocate storage, especially if connected to an external view,
+	e.g. a File"
+	self file
+	  ifTrue: [self file release]
+! !
+!Dict methodsFor: 'File-Based dictionary' stamp: ''!
+obsolete | |
+	self file "is my information obsolete (should I regenerate it)?"
+	  ifTrue: [^self file obsolete].
+	^false
+! !
+!Dict methodsFor: 'File-Based dictionary' stamp: ''!
+file | |
+	^false "return my file"
+! !
+!Dict methodsFor: 'Initialize' stamp: ''!
+init: initialSize | |
+	 "default is to ignore"
+! !
+!Dict methodsFor: 'Name-Value Access' stamp: ''!
+replace: name with: value | |
+	^self replace: (self newEntry name: name value: value)
+! !
+!Dict methodsFor: 'Name-Value Access' stamp: ''!
+insert: name with: value | |
+	^self insert: (self newEntry name: name value: value)
+! !
+!Dict methodsFor: 'Name-Value Access' stamp: ''!
+lookup: name | |
+	^self ◦ name
+! !
+!Dict methodsFor: 'Name-Value Access' stamp: ''!
+◦ name | entry |
+	(entry ← self find: name "find")
+	  ifTrue: [^entry value].
+	^false
+! !
+!Dict methodsFor: 'Name-Value Access' stamp: ''!
+◦ name ← value | |
+	^self write: (self newEntry "replace or insert" name: name value: value)
+! !
+!Dict methodsFor: 'Stream Access' stamp: ''!
+position | |
+	self subError "current position (name)"
+! !
+!Dict methodsFor: 'Stream Access' stamp: ''!
+reset | |
+	self subError "position to beginning"
+! !
+!Dict methodsFor: 'Stream Access' stamp: ''!
+asStream | |
+	 "leave position where it is"
+! !
+!Dict methodsFor: 'Stream Access' stamp: ''!
+next | |
+	^self nextEntry: self newEntry "return next entry or false"
+! !
+!Dict methodsFor: 'Stream Access' stamp: ''!
+append: dict | entry |
+	dict do: [:entry | self write: entry]
+! !
+!Dict methodsFor: 'Stream Access' stamp: ''!
+Position← entry | |
+	^self position← entry name "position to name, or position to insert place and return false if not found.
+	subclass had better define position← or Position← (preferably)
+	otherwise circularity results!!!"
+! !
+!Dict methodsFor: 'Stream Access' stamp: ''!
+position← name | |
+	^self Position← self makeEntry: name
+! !
 HashSet subclass: #Dictionary
 	instanceVariableNames: 'values'
 	classVariableNames: ''
@@ -279,6 +542,42 @@ lookup: name | x |
 !Dictionary methodsFor: 'Searching' stamp: ''!
 ◦ name ← val | |
 	^values ◦ (self findorerror: name) ← val
+! !
+Object subclass: #DictionaryEntry
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Sets and Dictionaries'!
+!DictionaryEntry methodsFor: 'Filing' stamp: ''!
+fileSize | |
+	self subError "size in characters for filing"
+! !
+!DictionaryEntry methodsFor: 'Filing' stamp: ''!
+readFrom: file | |
+	self subError "inverse of storeOn:"
+! !
+!DictionaryEntry methodsFor: 'Filing' stamp: ''!
+storeOn: file | |
+	self subError "store self as fileSize characters on file"
+! !
+!DictionaryEntry methodsFor: 'Initialize' stamp: ''!
+name: name | |
+	
+! !
+!DictionaryEntry methodsFor: 'Initialize' stamp: ''!
+dictionary: dict | |
+	
+! !
+!DictionaryEntry methodsFor: 'Initialize' stamp: ''!
+init | |
+	
+! !
+!DictionaryEntry methodsFor: 'Other' stamp: ''!
+match: entry | |
+	self subError "does self (some kind of pattern) match entry?"
+! !
+!DictionaryEntry methodsFor: 'Other' stamp: ''!
+dictionary | |
+	^false "what dictionary did I come from?"
 ! !
 Object subclass: #HashSet
 	instanceVariableNames: 'objects'
@@ -472,6 +771,111 @@ findorerror: name | i |
 	 "allow the user to put a correct value into i"
 	user notify: name asString + ' cannot be found'.
 	^i
+! !
+LADSet subclass: #LADDictionary
+	instanceVariableNames: ''
+	classVariableNames: ''
+	category: 'Sets and Dictionaries'!
+!LADDictionary methodsFor: 'As yet unclassified' stamp: ''!
+at: key ifAbsent⦂ expr | val |
+	val ← super at: (self find: key).
+	(val ≡ nil or: [val key ≠ key]) ifTrue: [^expr eval].
+	^val
+! !
+!LADDictionary methodsFor: 'As yet unclassified' stamp: ''!
+delete: key  | loc old len entry |
+	loc ← self find: key.
+	((entry ← self at: loc) ≡ nil or: [entry key ≠ key])
+		ifTrue: [self error: 'Object not found'].
+	self at: loc put: nil.
+	len ← self length.
+	[loc ← loc = len ifTrue: [1] ifFalse: [loc + 1].
+		(self at: loc)≡ nil]
+		whileFalseDo:
+			[old ← self find: (self at: loc) key.
+			loc=old ifFalse: [self swap: loc with: old]]
+! !
+!LADDictionary methodsFor: 'As yet unclassified' stamp: ''!
+contents | s i |
+	s ← Stream new of: (Vector new: self length).
+	(1 to: self length) do:
+		[:i | self ◦ i ≡ nil
+		  ifFalse: [s next← (self ◦ i) key]].
+	^s contents
+! !
+!LADDictionary methodsFor: 'As yet unclassified' stamp: ''!
+find: key | index len probe pass |
+	len ← self length.
+	pass ← 1.
+	index ← key hash \ len + 1.
+	[(probe ← super at: index) ≡ nil or: [probe key = key]] whileFalseDo: 
+		[(index ← index + 1) > len
+		  ifTrue:
+			[index ← 1.
+			(pass ← pass + 1) > 2
+			  ifTrue: [^index]]].
+	^index
+! !
+!LADDictionary methodsFor: 'As yet unclassified' stamp: ''!
+add: anAssociation | index |
+	index ← self find: anAssociation key.
+	(super at: index) ≡ nil
+	  ifTrue: [tally ← tally + 1].
+	self at: index put: anAssociation.
+	self fullCheck.
+	^anAssociation
+! !
+!LADDictionary methodsFor: 'As yet unclassified' stamp: ''!
+noCheckAdd: anAssociation | |
+	self at: (self find: anAssociation key) put: anAssociation.
+	tally ← tally + 1.
+	^anAssociation
+! !
+Object subclass: #LADSet
+	instanceVariableNames: 'tally'
+	classVariableNames: ''
+	category: 'Sets and Dictionaries'!
+!LADSet methodsFor: 'As yet unclassified' stamp: ''!
+swap: one with: other  | save |
+	save ← self ◦ one.
+	self ◦ one ← self ◦ other.
+	self ◦ other ← save
+! !
+!LADSet methodsFor: 'As yet unclassified' stamp: ''!
+asStream  | |
+	^self contents asStream
+! !
+!LADSet methodsFor: 'As yet unclassified' stamp: ''!
+grow | oldContents newSelf oldTally i |
+	NoteTaker
+	  ifTrue:
+		[newSelf ← self species new: self length * 2.
+		newSelf init "tally ← 0".
+		(1 to: self length) do:
+			[:i | self ◦ i ≡ nil
+			  ifFalse: [newSelf noCheckAdd: self ◦ i]].
+		self become: newSelf]
+! !
+!LADSet methodsFor: 'As yet unclassified' stamp: ''!
+size | |
+	^tally
+! !
+!LADSet methodsFor: 'As yet unclassified' stamp: ''!
+init | |
+	tally ← 0
+! !
+!LADSet methodsFor: 'As yet unclassified' stamp: ''!
+fullCheck | |
+	self length - tally ≤ (self length / 4)
+	  ifTrue: [self grow]
+! !
+!LADSet methodsFor: 'As yet unclassified' stamp: ''!
+at: index | |
+	^self ◦ index
+! !
+!LADSet methodsFor: 'As yet unclassified' stamp: ''!
+at: index put: anAssociation | |
+	^self ◦ index ← anAssociation
 ! !
 Dictionary subclass: #SymbolTable
 	instanceVariableNames: ''

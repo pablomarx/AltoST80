@@ -115,7 +115,7 @@ fork | |
 ! !
 String subclass: #CompiledMethod
 	instanceVariableNames: ''
-	classVariableNames: 'largeFrame smallFrame primReturnField primReturnSelf '
+	classVariableNames: 'largeFrame primReturnSelf primReturnField'
 	category: 'Interpreter'!
 !CompiledMethod methodsFor: 'As yet unclassified' stamp: ''!
 moveSourceTo: newFile  | len fileNo pos t5 t6 t7 |
@@ -402,6 +402,129 @@ getSource: class | loc file pos char len str |
 		str ← String new: len.
 		file into: str "get code".
 		^str asParagraph makeBoldPattern]
+! !
+Object subclass: #ContextPart
+	instanceVariableNames: 'sender pc stackp'
+	classVariableNames: ''
+	category: 'Interpreter'!
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+printOn: strm | mclass |
+	strm append: self receiver class title.
+	mclass ← self mclass.
+	mclass ≡ self receiver class
+	  ifFalse:
+		[strm append: '('.
+		strm append: mclass title.
+		strm append: ')'].
+	strm append: '>>'.
+	strm append: self method selector
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+releaseFully | | self releaseTo: nil
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+release | | self releaseTo: nil
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+tempNames | mcl code |
+	mcl ← self mclass.
+	code← (mcl canunderstand: self selector)
+		ifTrue: [self mclass code: self selector]
+		ifFalse: [(LADDecompiler new
+			decompile: self selector in: mcl method: self method) asString].
+	^LADParser new parseArgsAndTemps: code asStream notifying: false
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+mclass | mclass sel meth |
+	mclass ← self receiver class.
+	sel ← self selector.
+	meth← self method.
+	[mclass superclass ≡ nil or: [(mclass method: sel)≡meth]]
+		whileFalseDo:  [mclass ← mclass superclass].
+	^mclass
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+releaseTo: caller | c | "release frames to break cycles"
+	c ← self.
+	[c ≡ nil or: [c≡caller]] whileFalseDo: 
+		[c erase.
+		c ← c sender]
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+swapSender: coroutine | oldSender |
+	oldSender ← sender.
+	sender ← coroutine.
+	^oldSender
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+push: val | |
+	^self ◦ (stackp ← stackp + 1) ← val
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+selector | |
+	^self method selector
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+sender | |
+	^sender
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+pop | val |
+	val ← self ◦ stackp.
+	stackp ← stackp - 1.
+	^val
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+sender← t1 | |
+	sender ← t1.
+	^sender
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+erase | i |
+	 "release frames to break cycles"
+	(1 to: stackp) do: [:i | self ◦ i ← nil]
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+variableNamesInto: dest with: block | n |
+	self tempNames transform⦂ [:n | n] to⦂ [(dest identifier: n)]
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+stack | a strm |
+	strm ← (Vector new: 20) asStream.
+	strm next← a ← self.
+	[(a ← a sender) ≡ nil] whileFalseDo:  [strm next← a].
+	^strm contents
+! !
+!ContextPart methodsFor: 'As yet unclassified' stamp: ''!
+tempframe | i |
+	^1 ~ self method numTemps collect: [:i | self tempAt: i]
+! !
+Object subclass: #Message
+	instanceVariableNames: 'selector args'
+	classVariableNames: ''
+	category: 'Interpreter'!
+!Message methodsFor: 'As yet unclassified' stamp: ''!
+selector | |
+	^selector
+! !
+!Message methodsFor: 'As yet unclassified' stamp: ''!
+selector: sel arg: arg | |
+	selector ← sel.
+	args ← {arg}
+! !
+!Message methodsFor: 'As yet unclassified' stamp: ''!
+selector: sel args: vec | |
+	selector ← sel.
+	args ← vec
+! !
+!Message methodsFor: 'As yet unclassified' stamp: ''!
+args | |
+	^args
+! !
+!Message methodsFor: 'As yet unclassified' stamp: ''!
+selector: sel | |
+	selector ← sel.
+	args ← #()
 ! !
 ContextPart subclass: #MethodContext
 	instanceVariableNames: 'method receiverMap receiver'

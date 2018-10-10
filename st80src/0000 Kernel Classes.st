@@ -7,7 +7,7 @@ Object subclass: #Class
 				superclass "<Class> for execution of inherited behavior"
 				environment "<Vector of SymbolTables> for external refs"
 				fieldtype'
-	classVariableNames: 'lastSelector lastParagraph lastInstvarClass'
+	classVariableNames: 'lastParagraph lastInstvarClass'
 	category: 'Kernel Classes'!
 !Class methodsFor: 'Access to parts' stamp: ''!
 instsize | | "Return the number of user accessable instance fields"
@@ -892,6 +892,33 @@ moveFromCat: cat1 to: cat2 | |
 !Class methodsFor: 'System Organization' stamp: ''!
 category | |
 	^SystemOrganization invert: self title unique
+! !
+Object subclass: #Error
+	instanceVariableNames: 'errorString'
+	classVariableNames: ''
+	category: 'Kernel Classes'!
+!Error methodsFor: 'Error messages' stamp: ''!
+notify: anObject | |
+	anObject notify: self message
+! !
+!Error methodsFor: 'Error messages' stamp: ''!
+message | |
+	(errorString Is: String)
+	  ifTrue: [^errorString].
+	^'ERROR'
+! !
+!Error methodsFor: 'Error messages' stamp: ''!
+notify | |
+	self notify: user
+! !
+!Error methodsFor: 'Initialization' stamp: ''!
+message: aString | |
+	errorString ← aString
+! !
+!Error methodsFor: 'Printing' stamp: ''!
+printOn: aStream | |
+	aStream append: 'Error: '.
+	aStream append: self message
 ! !
 nil subclass: #Object
 	instanceVariableNames: ''
